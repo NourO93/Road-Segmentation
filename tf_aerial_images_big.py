@@ -25,8 +25,8 @@ import tensorflow as tf
 NUM_CHANNELS = 3 # RGB images
 PIXEL_DEPTH = 255
 NUM_LABELS = 2
-TRAINING_SIZE = 100
-TEST_SIZE = 50
+TRAINING_SIZE = 10
+TEST_SIZE = 5
 VALIDATION_SIZE = 30  # Size of the validation set.
 SEED = None  # Set to None for random seed.
 BATCH_SIZE = 16 # 64
@@ -54,11 +54,11 @@ def img_crop(im):
     PAD = IMG_PATCH_SIZE
     # pad the image with 0.5 (gray or whatever :) )
     if is_2d:
-        padded_image = numpy.full((PAD + im.shape[0] + PAD, PAD + im.shape[1] + PAD), 0.5)
+        padded_image = numpy.full((PAD + im.shape[0] + PAD, PAD + im.shape[1] + PAD), 0.5, dtype='float32')
         padded_image[PAD:PAD+im.shape[0], PAD:PAD+im.shape[1]] = im
         # image = padded_image
     else:
-        padded_image = numpy.full((PAD + im.shape[0] + PAD, PAD + im.shape[1] + PAD, im.shape[2]), 0.5)
+        padded_image = numpy.full((PAD + im.shape[0] + PAD, PAD + im.shape[1] + PAD, im.shape[2]), 0.5, dtype='float32')
         padded_image[PAD:PAD+im.shape[0], PAD:PAD+im.shape[1], :] = im
 
     for i in range(PAD,PAD+imgheight):
