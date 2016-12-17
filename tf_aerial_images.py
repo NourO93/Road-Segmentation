@@ -39,7 +39,7 @@ RECORDING_STEP = 1000
 # image size should be an integer multiple of this number!
 IMG_PATCH_SIZE = 8
 
-tf.app.flags.DEFINE_string('train_dir', '/tmp/mnist',
+tf.app.flags.DEFINE_string('train_dir', 'tmp/mnist',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 FLAGS = tf.app.flags.FLAGS
