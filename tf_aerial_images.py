@@ -199,6 +199,8 @@ def main(argv=None):  # pylint: disable=unused-argument
     train_data = extract_data(train_data_filename, TRAINING_SIZE)
     train_labels = extract_labels(train_labels_filename, TRAINING_SIZE)
 
+    print('Data and labels are loaded')
+
     num_epochs = NUM_EPOCHS
 
     c0 = 0
@@ -476,6 +478,7 @@ def main(argv=None):  # pylint: disable=unused-argument
             training_indices = range(train_size)
 
             for iepoch in range(num_epochs):
+                print("Starting epoch number ", iepoch + 1)
 
                 # Permute training indices
                 perm_indices = numpy.random.permutation(training_indices)

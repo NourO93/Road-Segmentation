@@ -30,7 +30,7 @@ TEST_SIZE = 50
 VALIDATION_SIZE = 30  # Size of the validation set.
 SEED = None  # Set to None for random seed.
 BATCH_SIZE = 16 # 64
-NUM_EPOCHS = 5
+NUM_EPOCHS = 1
 RESTORE_MODEL = False # If True, restore existing model instead of training a new one
 RECORDING_STEP = 1000
 
@@ -45,7 +45,32 @@ tf.app.flags.DEFINE_string('train_dir', 'tmp/mnist',
 FLAGS = tf.app.flags.FLAGS
 
 # Extract patches from a given image
-def img_crop(im, w, h):
+def img_crop(im):
+    list_patches = []
+    imgwidth = im.shape[0]
+    imgheight = im.shape[1]
+    is_2d = len(im.shape) < 3
+
+    PAD = IMG_PATCH_SIZE
+    # pad the image with 0.5 (gray or whatever :) )
+    if is_2d:
+        padded_image = numpy.full((PAD + im.shape[0] + PAD, PAD + im.shape[1] + PAD), 0.5)
+        padded_image[PAD:PAD+im.shape[0], PAD:PAD+im.shape[1]] = im
+        # image = padded_image
+    else:
+        padded_image = numpy.full((PAD + im.shape[0] + PAD, PAD + im.shape[1] + PAD, im.shape[2]), 0.5)
+        padded_image[PAD:PAD+im.shape[0], PAD:PAD+im.shape[1], :] = im
+
+    for i in range(PAD,PAD+imgheight):
+        for j in range(PAD,PAD+imgwidth):
+            if is_2d:
+                im_patch = padded_image[j-PAD//2:j+PAD//2, i-PAD//2:i+PAD//2]
+            else:
+                im_patch = padded_image[j-PAD//2:j+PAD//2, i-PAD//2:i+PAD//2, :]
+            list_patches.append(im_patch)
+    return list_patches
+
+def img_crop_old(im, w, h):
     list_patches = []
     imgwidth = im.shape[0]
     imgheight = im.shape[1]
@@ -61,7 +86,7 @@ def img_crop(im, w, h):
 
 def extract_data(filename, num_images):
     """Extract the images into a 4D tensor [image index, y, x, channels].
-    Values are rescaled from [0, 255] down to [-0.5, 0.5].
+    Values are rescaled from [0, 255] down to [0.0, 1.0].
     """
     imgs = []
     for i in range(1, num_images+1):
@@ -75,11 +100,8 @@ def extract_data(filename, num_images):
             print ('File ' + image_filename + ' does not exist')
 
     num_images = len(imgs)
-    IMG_WIDTH = imgs[0].shape[0]
-    IMG_HEIGHT = imgs[0].shape[1]
-    N_PATCHES_PER_IMAGE = (IMG_WIDTH/IMG_PATCH_SIZE)*(IMG_HEIGHT/IMG_PATCH_SIZE)
 
-    img_patches = [img_crop(imgs[i], IMG_PATCH_SIZE, IMG_PATCH_SIZE) for i in range(num_images)]
+    img_patches = [img_crop(imgs[i]) for i in range(num_images)]
     data = [img_patches[i][j] for i in range(len(img_patches)) for j in range(len(img_patches[i]))]
 
     return numpy.asarray(data)
@@ -108,7 +130,7 @@ def extract_labels(filename, num_images):
             print ('File ' + image_filename + ' does not exist')
 
     num_images = len(gt_imgs)
-    gt_patches = [img_crop(gt_imgs[i], IMG_PATCH_SIZE, IMG_PATCH_SIZE) for i in range(num_images)]
+    gt_patches = [img_crop_old(gt_imgs[i], 1, 1) for i in range(num_images)]
     data = numpy.asarray([gt_patches[i][j] for i in range(len(gt_patches)) for j in range(len(gt_patches[i]))])
     labels = numpy.asarray([value_to_class(numpy.mean(data[i])) for i in range(len(data))])
 
@@ -198,6 +220,8 @@ def main(argv=None):  # pylint: disable=unused-argument
     # Extract it into numpy arrays.
     train_data = extract_data(train_data_filename, TRAINING_SIZE)
     train_labels = extract_labels(train_labels_filename, TRAINING_SIZE)
+
+    print('Data and labels are loaded')
 
     num_epochs = NUM_EPOCHS
 
@@ -293,11 +317,11 @@ def main(argv=None):  # pylint: disable=unused-argument
 
     # Get prediction for given input image 
     def get_prediction(img):
-        data = numpy.asarray(img_crop(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE))
+        data = numpy.asarray(img_crop(img))
         data_node = tf.constant(data)
         output = tf.nn.softmax(model(data_node))
         output_prediction = s.run(output)
-        img_prediction = label_to_img(img.shape[0], img.shape[1], IMG_PATCH_SIZE, IMG_PATCH_SIZE, output_prediction)
+        img_prediction = label_to_img(img.shape[0], img.shape[1], 1, 1, output_prediction)
 
         return img_prediction
 
@@ -476,6 +500,7 @@ def main(argv=None):  # pylint: disable=unused-argument
             training_indices = range(train_size)
 
             for iepoch in range(num_epochs):
+                print("Starting epoch number ", iepoch+1)
 
                 # Permute training indices
                 perm_indices = numpy.random.permutation(training_indices)
