@@ -12,6 +12,8 @@ import os
 import sys
 import urllib
 import scipy.misc
+from scipy import ndimage as ndi
+from sklearn import preprocessing
 import matplotlib.image as mpimg
 from PIL import Image
 
@@ -30,14 +32,14 @@ TEST_SIZE = 50
 VALIDATION_SIZE = 30  # Size of the validation set.
 SEED = None  # Set to None for random seed.
 BATCH_SIZE = 16 # 64
-NUM_EPOCHS = 5
-RESTORE_MODEL = False # If True, restore existing model instead of training a new one
+NUM_EPOCHS = 10
+RESTORE_MODEL = True # If True, restore existing model instead of training a new one
 RECORDING_STEP = 1000
 
 # Set image patch size in pixels
 # IMG_PATCH_SIZE should be a multiple of 4
 # image size should be an integer multiple of this number!
-IMG_PATCH_SIZE = 8
+IMG_PATCH_SIZE = 16
 
 tf.app.flags.DEFINE_string('train_dir', 'tmp/mnist',
                            """Directory where to write event logs """
@@ -86,7 +88,7 @@ def extract_data(filename, num_images):
         
 # Assign a label to a patch v
 def value_to_class(v):
-    foreground_threshold = 0.2 # percentage of pixels > 1 required to assign a foreground label to a patch
+    foreground_threshold = 0.35 # percentage of pixels > 1 required to assign a foreground label to a patch
     df = numpy.sum(v)
     if df > foreground_threshold:
         return [0, 1]
@@ -197,6 +199,8 @@ def main(argv=None):  # pylint: disable=unused-argument
 
     # Extract it into numpy arrays.
     train_data = extract_data(train_data_filename, TRAINING_SIZE)
+    
+
     train_labels = extract_labels(train_labels_filename, TRAINING_SIZE)
 
     print('Data and labels are loaded')
@@ -525,16 +529,16 @@ def main(argv=None):  # pylint: disable=unused-argument
                 print("Model saved in file: %s" % save_path)
 
         #Getting the prediction and overlay for the training images. Stored in 'predictions_training'
-        print ("Running prediction on training set")
-        prediction_training_dir = "predictions_training/"
-        if not os.path.isdir(prediction_training_dir):
-            os.mkdir(prediction_training_dir)
-        for i in range(1, TRAINING_SIZE+1):
-            pimg = get_prediction_with_groundtruth(train_data_filename, i)
-            pimg = 1 - pimg
-            Image.fromarray(pimg).save(prediction_training_dir + "prediction_" + str(i) + ".png")
-            oimg = get_prediction_with_overlay(train_data_filename, i)
-            oimg.save(prediction_training_dir + "overlay_" + str(i) + ".png")
+        #print ("Running prediction on training set")
+        #prediction_training_dir = "predictions_training/"
+        #if not os.path.isdir(prediction_training_dir):
+        #    os.mkdir(prediction_training_dir)
+        #for i in range(1, TRAINING_SIZE+1):
+            #pimg = get_prediction_with_groundtruth(train_data_filename, i)
+            #pimg = 1 - pimg
+            #Image.fromarray(pimg).save(prediction_training_dir + "prediction_" + str(i) + ".png")
+        #    oimg = get_prediction_with_overlay(train_data_filename, i)
+        #    oimg.save(prediction_training_dir + "overlay_" + str(i) + ".png")
         
         #Getting the prediction and overlay for the test images. Stored in 'predictions_test'
         print ("Running prediction on test set")
@@ -544,8 +548,10 @@ def main(argv=None):  # pylint: disable=unused-argument
         for i in range(1, TEST_SIZE+1):
             filename_test = test_data_filename + str(i) + '/test_' + str(i) + '.png'
             pimg = get_prediction(mpimg.imread(filename_test))
+            pimg = ndi.binary_fill_holes(pimg, structure=numpy.ones((3,3))).astype(int)
             pimg = 1 - pimg
             scipy.misc.imsave(prediction_test_dir + "prediction_" + str(i) + ".png", pimg)
+            
             oimg = get_prediction_with_overlay_test(test_data_filename + str(i) + '/', i)
             oimg.save(prediction_test_dir + "overlay_" + str(i) + ".png")
 
