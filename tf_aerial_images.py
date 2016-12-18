@@ -529,16 +529,14 @@ def main(argv=None):  # pylint: disable=unused-argument
                 print("Model saved in file: %s" % save_path)
 
         #Getting the prediction and overlay for the training images. Stored in 'predictions_training'
-        #print ("Running prediction on training set")
-        #prediction_training_dir = "predictions_training/"
-        #if not os.path.isdir(prediction_training_dir):
-        #    os.mkdir(prediction_training_dir)
-        #for i in range(1, TRAINING_SIZE+1):
-            #pimg = get_prediction_with_groundtruth(train_data_filename, i)
-            #pimg = 1 - pimg
-            #Image.fromarray(pimg).save(prediction_training_dir + "prediction_" + str(i) + ".png")
-        #    oimg = get_prediction_with_overlay(train_data_filename, i)
-        #    oimg.save(prediction_training_dir + "overlay_" + str(i) + ".png")
+        print ("Running prediction on training set")
+        prediction_training_dir = "predictions_training/"
+        for i in range(1, TRAINING_SIZE+1):
+            imageid = "satImage_%.3d" % i
+            image_filename = train_data_filename + imageid + ".png"
+            pimg = get_prediction(mpimg.imread(image_filename))
+            pimg = 1 - pimg
+            scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", pimg)
         
         #Getting the prediction and overlay for the test images. Stored in 'predictions_test'
         print ("Running prediction on test set")
