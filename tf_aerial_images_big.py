@@ -25,19 +25,19 @@ import tensorflow as tf
 NUM_CHANNELS = 3  # RGB images
 PIXEL_DEPTH = 255
 NUM_LABELS = 2
-TRAINING_SIZE = 5  # 100
-TEST_SIZE = 5
+TRAINING_SIZE = 5  # ideally: 100
+TEST_SIZE = 5  # ideally: 50
 VALIDATION_SIZE = 30  # Size of the validation set.
 SEED = None  # Set to None for random seed.
-BATCH_SIZE = 16 # 64
+BATCH_SIZE = 16  # 64 (?)
 NUM_EPOCHS = 1
-RESTORE_MODEL = True # If True, restore existing model instead of training a new one
+RESTORE_MODEL = False  # If True, restore existing model instead of training a new one
 RECORDING_STEP = 1000
 SAVING_MODEL_TO_DISK_STEP = 10000
 BATCH_SIZE_FOR_PREDICTION = 10000
 
-# Set image patch size in pixels (should be even)
-IMG_PATCH_SIZE = 4
+# Set image patch size in pixels (should be a multiple of 4 for some reason)
+IMG_PATCH_SIZE = 48  # ideally, like 48
 
 tf.app.flags.DEFINE_string('train_dir', 'tmp/mnist',
                            """Directory where to write event logs """
@@ -267,6 +267,8 @@ def main(argv=None):  # pylint: disable=unused-argument
     # Get prediction for given input image 
     def get_prediction(img):
         # TODO - cache the result
+
+        # TODO - this gets progressively slower as we iterate. use placeholder instead of constant for invoking TF?
 
         padded_image = pad_image(img)
 
