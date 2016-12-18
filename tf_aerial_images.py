@@ -305,6 +305,9 @@ def main(argv=None):  # pylint: disable=unused-argument
         output_prediction = s.run(output)
         img_prediction = label_to_img(img.shape[0], img.shape[1], IMG_PATCH_SIZE, IMG_PATCH_SIZE, output_prediction)
 
+        # hole-filling
+        img_prediction = ndi.binary_fill_holes(img_prediction, structure=numpy.ones((3, 3))).astype(int)
+
         return img_prediction
 
     # Get a concatenation of the prediction and groundtruth for given input file
@@ -546,7 +549,6 @@ def main(argv=None):  # pylint: disable=unused-argument
         for i in range(1, TEST_SIZE+1):
             filename_test = test_data_filename + str(i) + '/test_' + str(i) + '.png'
             pimg = get_prediction(mpimg.imread(filename_test))
-            pimg = ndi.binary_fill_holes(pimg, structure=numpy.ones((3,3))).astype(int)
             pimg = 1 - pimg
             scipy.misc.imsave(prediction_test_dir + "prediction_" + str(i) + ".png", pimg)
             
