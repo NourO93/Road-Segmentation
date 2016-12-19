@@ -34,7 +34,7 @@ NUM_EPOCHS = 1
 RESTORE_MODEL = False  # If True, restore existing model instead of training a new one
 RECORDING_STEP = 1000
 SAVING_MODEL_TO_DISK_STEP = 10000
-BATCH_SIZE_FOR_PREDICTION = 10000
+BATCH_SIZE_FOR_PREDICTION = 200
 
 # Set image patch size in pixels (should be a multiple of 4 for some reason)
 IMG_PATCH_SIZE = 48  # ideally, like 48
@@ -264,11 +264,15 @@ def main(argv=None):  # pylint: disable=unused-argument
     fc2_biases = tf.Variable(tf.constant(0.1, shape=[NUM_LABELS]))
 
 
+    # new in our code
+    prediction_data_node = tf.placeholder(
+        tf.float32,
+        shape=(BATCH_SIZE_FOR_PREDICTION, IMG_PATCH_SIZE, IMG_PATCH_SIZE, NUM_CHANNELS))
+
+
     # Get prediction for given input image 
     def get_prediction(img):
-        # TODO - cache the result
-
-        # TODO - this gets progressively slower as we iterate. use placeholder instead of constant for invoking TF?
+        # TODO - cache the result (or just reuse it instead of calling get_prediction again and again)
 
         padded_image = pad_image(img)
 
@@ -280,10 +284,23 @@ def main(argv=None):  # pylint: disable=unused-argument
         for offset in range(0, len(pairs_JI), BATCH_SIZE_FOR_PREDICTION):
             print('Beginning offset', offset, 'out of', len(pairs_JI))
             current_pairs_JI = pairs_JI[offset : offset+BATCH_SIZE_FOR_PREDICTION]
+
+            # if the batch is not full, then we have to pad it with some junk to the right length
+            # (in the first axis) because the tf.placeholder prediction_data_node is of fixed size
+            # so we just add the first row the right number of times
+            padding_rows = BATCH_SIZE_FOR_PREDICTION - len(current_pairs_JI)
+            for _ in range(padding_rows):
+                current_pairs_JI.append(current_pairs_JI[0])
+
             current_data = numpy.asarray([get_patch(padded_image,j,i) for (j,i) in current_pairs_JI])
-            data_node = tf.constant(current_data)
-            output = tf.nn.softmax(model(data_node))
-            output_predictions.append(s.run(output))
+            output = tf.nn.softmax(model(prediction_data_node))
+            current_output_prediction = s.run(output, feed_dict={prediction_data_node: current_data})
+
+            # now unpad the result
+            if padding_rows > 0:
+                current_output_prediction = current_output_prediction[ : current_output_prediction.shape[0] - padding_rows]
+
+            output_predictions.append(current_output_prediction)
         output_prediction = numpy.concatenate(output_predictions)
         img_prediction = label_to_img(img.shape[0], img.shape[1], output_prediction)
 
