@@ -198,36 +198,35 @@ def make_img_overlay(img, predicted_img):
 
 def main(argv=None):  # pylint: disable=unused-argument
 
+    def prepare_training_tuples_and_simple_labels():
+        # preparing tuples takes ~20 seconds, but longer if rewritten to numpy
+        train_images_padded = get_padded_images(train_data_filename, TRAINING_SIZE)
+        train_tuples_of_label = extract_samples_of_labels(train_labels_filename, TRAINING_SIZE)
 
-    # preparing tuples takes ~20 seconds, but longer if rewritten to numpy
-    train_images_padded = get_padded_images(train_data_filename, TRAINING_SIZE)
-    train_tuples_of_label = extract_samples_of_labels(train_labels_filename, TRAINING_SIZE)
+        print('Tuples and labels are loaded')
 
-    print('Tuples and labels are loaded')
+        c0 = len(train_tuples_of_label[0])
+        c1 = len(train_tuples_of_label[1])
+        print ('Number of data points per class: c0 =', c0, ', c1 =', c1)
 
-    c0 = len(train_tuples_of_label[0])
-    c1 = len(train_tuples_of_label[1])
-    print ('Number of data points per class: c0 =', c0, ', c1 =', c1)
+        print ('Balancing training tuples...')
+        sys.stdout.flush()
+        assert(c0 > c1)  # this is what happens in the training set
+        # add copies of c1 so that c1 > c0, then truncate c1 to become c0
+        random.shuffle(train_tuples_of_label[1])
+        multiplier = int(math.ceil(c0 / c1))
+        train_tuples_of_label[1] *= multiplier  # e.g. [1,2,3] * 2 = [1,2,3,1,2,3]
+        del train_tuples_of_label[1][c0:]  # truncate
+        c1 = len(train_tuples_of_label[1])
+        assert(c0 == c1)
 
-    print ('Balancing training tuples...')
-    assert(c0 > c1)
-    # add copies of c1 so that c1 > c0, then truncate c1 to become c0
-    random.shuffle(train_tuples_of_label[1])
-    multiplier = int(math.ceil(c0 / c1))
-    train_tuples_of_label[1] *= multiplier  # e.g. [1,2,3] * 2 = [1,2,3,1,2,3]
-    del train_tuples_of_label[1][c0:]  # truncate
-    c1 = len(train_tuples_of_label[1])
-    assert(c0 == c1)
+        # now merge the training tuples: first c0, then c1
+        train_tuples = numpy.array(train_tuples_of_label[0] + train_tuples_of_label[1])
+        train_labels_simple = numpy.array([0] * c0 + [1] * c1)
 
-    # now merge the training tuples: first c0, then c1
-    train_tuples = numpy.array(train_tuples_of_label[0] + train_tuples_of_label[1])
-    train_labels_simple = numpy.array([0] * c0 + [1] * c1)
+        print('Training tuples are ready')
 
-    train_size = len(train_tuples)
-
-    print('Training tuples are ready')
-
-
+        return train_images_padded, train_tuples, train_labels_simple
 
 
     # This is where training samples and labels are fed to the graph.
@@ -425,7 +424,9 @@ def main(argv=None):  # pylint: disable=unused-argument
         0.01,                # Base learning rate.
         batch * BATCH_SIZE,  # Current index into the dataset.
         train_size,          # Decay step.
-        0.80,                # Decay rate. (much increased since train_size is huge)
+        0.001,               # Decay rate. (note that this is per one epoch;
+                                            # in our case the epoch is enormous
+                                            # and we never perform a whole epoch)
         staircase=True)
 
     # Use simple momentum for the optimization.
@@ -449,6 +450,10 @@ def main(argv=None):  # pylint: disable=unused-argument
             print("Model restored.")
 
         else:
+            # load the training data
+            train_images_padded, train_tuples, train_labels_simple = prepare_training_tuples_and_simple_labels()
+            train_size = len(train_tuples)
+
             # Run all the initializers to prepare the trainable parameters.
             tf.initialize_all_variables().run()
 
@@ -486,10 +491,9 @@ def main(argv=None):  # pylint: disable=unused-argument
                         feed_dict=feed_dict)
 
                     if step % RECORDING_STEP == 0:
-                        print('Epoch %.2f' % (float(step) * BATCH_SIZE / train_size))
+                        pri nt('Epoch %.2f' % (float(step) * BATCH_SIZE / train_size))
                         print('Minibatch loss: %.3f, learning rate: %.6f' % (l, lr))
                         print('Minibatch error: %.1f%%' % error_rate(predictions, batch_labels))
-
                         sys.stdout.flush()
 
                     if step % SAVING_MODEL_TO_DISK_STEP == 0:
