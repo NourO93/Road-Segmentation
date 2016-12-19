@@ -151,23 +151,6 @@ def img_float_to_uint8(img):
     return rimg
 
 
-def concatenate_images(img, gt_img):
-    nChannels = len(gt_img.shape)
-    w = gt_img.shape[0]
-    h = gt_img.shape[1]
-    if nChannels == 3:
-        cimg = numpy.concatenate((img, gt_img), axis=1)
-    else:
-        gt_img_3c = numpy.zeros((w, h, 3), dtype=numpy.uint8)
-        gt_img8 = img_float_to_uint8(gt_img)
-        gt_img_3c[:,:,0] = gt_img8
-        gt_img_3c[:,:,1] = gt_img8
-        gt_img_3c[:,:,2] = gt_img8
-        img8 = img_float_to_uint8(img)
-        cimg = numpy.concatenate((img8, gt_img_3c), axis=1)
-    return cimg
-
-
 def main(argv=None):  # pylint: disable=unused-argument
 
     def prepare_training_tuples_and_simple_labels():
@@ -331,18 +314,6 @@ def main(argv=None):  # pylint: disable=unused-argument
         img_prediction = label_to_img(img.shape[0], img.shape[1], output_prediction)
 
         return img_prediction
-
-    # Get a concatenation of the prediction and groundtruth for given input file
-    def get_prediction_with_groundtruth(filename, image_idx):
-
-        imageid = "satImage_%.3d" % image_idx
-        image_filename = filename + imageid + ".png"
-        img = mpimg.imread(image_filename)
-
-        img_prediction = get_prediction(img)
-        cimg = concatenate_images(img, img_prediction)
-
-        return cimg
 
 
     # Training computation: logits + cross-entropy loss.
