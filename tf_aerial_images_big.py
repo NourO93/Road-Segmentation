@@ -300,8 +300,6 @@ def main(argv=None):  # pylint: disable=unused-argument
 
     # Get prediction for given input image 
     def get_prediction(img):
-        # TODO - cache the result (or just reuse it instead of calling get_prediction again and again)
-
         padded_image = pad_image(img)
 
         pairs_JI = []
@@ -311,6 +309,7 @@ def main(argv=None):  # pylint: disable=unused-argument
         output_predictions = []  # array of output predictions
         for offset in range(0, len(pairs_JI), BATCH_SIZE_FOR_PREDICTION):
             print('Beginning offset', offset, 'out of', len(pairs_JI))
+            sys.stdout.flush()
             current_pairs_JI = pairs_JI[offset : offset+BATCH_SIZE_FOR_PREDICTION]
 
             # if the batch is not full, then we have to pad it with some junk to the right length
@@ -372,8 +371,8 @@ def main(argv=None):  # pylint: disable=unused-argument
     learning_rate = tf.train.exponential_decay(
         0.01,                # Base learning rate.
         batch * BATCH_SIZE,  # Current index into the dataset.
-        2000000,             # Decay step.
-        0.95,                # Decay rate. (note that decay is slow)
+        1000000,             # Decay step.
+        0.95,                # Decay rate. (note that decay is slow: we do 1600000 iters / hour)
         staircase=True)
 
     # Use simple momentum for the optimization.
@@ -390,7 +389,7 @@ def main(argv=None):  # pylint: disable=unused-argument
     with tf.Session() as s:
 
 
-        # TODO: resuming the training from partial results
+        # TODO: resuming the training from partial results?
         if RESTORE_MODEL:
             # Restore variables from disk.
             saver.restore(s, FLAGS.train_dir + "/model.ckpt")
