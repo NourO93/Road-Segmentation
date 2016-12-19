@@ -25,16 +25,16 @@ import tensorflow as tf
 NUM_CHANNELS = 3  # RGB images
 PIXEL_DEPTH = 255
 NUM_LABELS = 2
-TRAINING_SIZE = 5  # ideally: 100
-TEST_SIZE = 5  # ideally: 50
+TRAINING_SIZE = 100  # ideally: 100
+TEST_SIZE = 50  # ideally: 50
 VALIDATION_SIZE = 30  # Size of the validation set.
-SEED = None  # Set to None for random seed.
+SEED = 464972  # Set to None for random seed.
 BATCH_SIZE = 16  # 64 (?)
 NUM_EPOCHS = 1
-RESTORE_MODEL = False  # If True, restore existing model instead of training a new one
+RESTORE_MODEL = True  # If True, restore existing model instead of training a new one
 RECORDING_STEP = 1000
 SAVING_MODEL_TO_DISK_STEP = 10000
-BATCH_SIZE_FOR_PREDICTION = 200
+BATCH_SIZE_FOR_PREDICTION = 500
 
 # Set image patch size in pixels (should be a multiple of 4 for some reason)
 IMG_PATCH_SIZE = 48  # ideally, like 48
@@ -264,89 +264,6 @@ def main(argv=None):  # pylint: disable=unused-argument
     fc2_biases = tf.Variable(tf.constant(0.1, shape=[NUM_LABELS]))
 
 
-    # new in our code
-    prediction_data_node = tf.placeholder(
-        tf.float32,
-        shape=(BATCH_SIZE_FOR_PREDICTION, IMG_PATCH_SIZE, IMG_PATCH_SIZE, NUM_CHANNELS))
-
-
-    # Get prediction for given input image 
-    def get_prediction(img):
-        # TODO - cache the result (or just reuse it instead of calling get_prediction again and again)
-
-        padded_image = pad_image(img)
-
-        pairs_JI = []
-        for i in range(img.shape[1]):  # height
-            for j in range(img.shape[0]):  # width
-                pairs_JI.append((j,i))
-        output_predictions = []  # array of output predictions
-        for offset in range(0, len(pairs_JI), BATCH_SIZE_FOR_PREDICTION):
-            print('Beginning offset', offset, 'out of', len(pairs_JI))
-            current_pairs_JI = pairs_JI[offset : offset+BATCH_SIZE_FOR_PREDICTION]
-
-            # if the batch is not full, then we have to pad it with some junk to the right length
-            # (in the first axis) because the tf.placeholder prediction_data_node is of fixed size
-            # so we just add the first row the right number of times
-            padding_rows = BATCH_SIZE_FOR_PREDICTION - len(current_pairs_JI)
-            for _ in range(padding_rows):
-                current_pairs_JI.append(current_pairs_JI[0])
-
-            current_data = numpy.asarray([get_patch(padded_image,j,i) for (j,i) in current_pairs_JI])
-            output = tf.nn.softmax(model(prediction_data_node))
-            current_output_prediction = s.run(output, feed_dict={prediction_data_node: current_data})
-
-            # now unpad the result
-            if padding_rows > 0:
-                current_output_prediction = current_output_prediction[ : current_output_prediction.shape[0] - padding_rows]
-
-            output_predictions.append(current_output_prediction)
-        output_prediction = numpy.concatenate(output_predictions)
-        img_prediction = label_to_img(img.shape[0], img.shape[1], output_prediction)
-
-        # the hole-filling procedure
-        img_prediction = ndi.binary_fill_holes(img_prediction, structure=numpy.ones((3, 3))).astype(int)
-
-        return img_prediction
-
-    # Get a concatenation of the prediction and groundtruth for given input file
-    def get_prediction_with_groundtruth(filename, image_idx):
-
-        imageid = "satImage_%.3d" % image_idx
-        image_filename = filename + imageid + ".png"
-        img = mpimg.imread(image_filename)
-
-        img_prediction = get_prediction(img)
-        cimg = concatenate_images(img, img_prediction)
-
-        return cimg
-    
-
-    # Get prediction overlaid on the original image for given input file
-    def get_prediction_with_overlay(filename, image_idx):
-
-        imageid = "satImage_%.3d" % image_idx
-        image_filename = filename + imageid + ".png"
-        img = mpimg.imread(image_filename)
-
-        img_prediction = get_prediction(img)
-        oimg = make_img_overlay(img, img_prediction)
-
-        return oimg
-
-
-    def get_prediction_with_overlay_test(filename, image_idx):
-
-        imageid = "test_" + str(image_idx)
-        image_filename = filename + imageid + ".png"
-        img = mpimg.imread(image_filename)
-
-        img_prediction = get_prediction(img)
-        oimg = make_img_overlay(img, img_prediction)
-
-        return oimg
-
-
     # We will replicate the model structure for the training subgraph, as well
     # as the evaluation subgraphs, while sharing the trainable parameters.
     def model(data, train=False):
@@ -401,6 +318,90 @@ def main(argv=None):  # pylint: disable=unused-argument
         out = tf.matmul(hidden, fc2_weights) + fc2_biases
 
         return out
+
+
+
+    # new in our code
+    prediction_data_node = tf.placeholder(
+        tf.float32,
+        shape=(BATCH_SIZE_FOR_PREDICTION, IMG_PATCH_SIZE, IMG_PATCH_SIZE, NUM_CHANNELS))
+    output_for_prediction = tf.nn.softmax(model(prediction_data_node))
+
+    # Get prediction for given input image 
+    def get_prediction(img):
+        # TODO - cache the result (or just reuse it instead of calling get_prediction again and again)
+
+        padded_image = pad_image(img)
+
+        pairs_JI = []
+        for i in range(img.shape[1]):  # height
+            for j in range(img.shape[0]):  # width
+                pairs_JI.append((j,i))
+        output_predictions = []  # array of output predictions
+        for offset in range(0, len(pairs_JI), BATCH_SIZE_FOR_PREDICTION):
+            print('Beginning offset', offset, 'out of', len(pairs_JI))
+            current_pairs_JI = pairs_JI[offset : offset+BATCH_SIZE_FOR_PREDICTION]
+
+            # if the batch is not full, then we have to pad it with some junk to the right length
+            # (in the first axis) because the tf.placeholder prediction_data_node is of fixed size
+            # so we just add the first row the right number of times
+            padding_rows = BATCH_SIZE_FOR_PREDICTION - len(current_pairs_JI)
+            for _ in range(padding_rows):
+                current_pairs_JI.append(current_pairs_JI[0])
+
+            current_data = numpy.asarray([get_patch(padded_image,j,i) for (j,i) in current_pairs_JI])
+            current_output_prediction = s.run(output_for_prediction, feed_dict={prediction_data_node: current_data})
+
+            # now unpad the result
+            if padding_rows > 0:
+                current_output_prediction = current_output_prediction[ : current_output_prediction.shape[0] - padding_rows]
+
+            output_predictions.append(current_output_prediction)
+        output_prediction = numpy.concatenate(output_predictions)
+        img_prediction = label_to_img(img.shape[0], img.shape[1], output_prediction)
+
+        # the hole-filling procedure
+        img_prediction = ndi.binary_fill_holes(img_prediction, structure=numpy.ones((3, 3))).astype(int)
+
+        return img_prediction
+
+    # Get a concatenation of the prediction and groundtruth for given input file
+    def get_prediction_with_groundtruth(filename, image_idx):
+
+        imageid = "satImage_%.3d" % image_idx
+        image_filename = filename + imageid + ".png"
+        img = mpimg.imread(image_filename)
+
+        img_prediction = get_prediction(img)
+        cimg = concatenate_images(img, img_prediction)
+
+        return cimg
+    
+
+    # Get prediction overlaid on the original image for given input file
+    def get_prediction_with_overlay(filename, image_idx):
+
+        imageid = "satImage_%.3d" % image_idx
+        image_filename = filename + imageid + ".png"
+        img = mpimg.imread(image_filename)
+
+        img_prediction = get_prediction(img)
+        oimg = make_img_overlay(img, img_prediction)
+
+        return oimg
+
+
+    def get_prediction_with_overlay_test(filename, image_idx):
+
+        imageid = "test_" + str(image_idx)
+        image_filename = filename + imageid + ".png"
+        img = mpimg.imread(image_filename)
+
+        img_prediction = get_prediction(img)
+        oimg = make_img_overlay(img, img_prediction)
+
+        return oimg
+
 
     # Training computation: logits + cross-entropy loss.
     logits = model(train_data_node, True) # BATCH_SIZE*NUM_LABELS
