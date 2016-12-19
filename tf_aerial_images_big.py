@@ -378,15 +378,10 @@ def main(argv=None):  # pylint: disable=unused-argument
         return cimg
     
 
-    # Get prediction overlaid on the original image for given input file
-    def get_prediction_with_overlay(filename, image_idx):
-
-        imageid = "satImage_%.3d" % image_idx
-        image_filename = filename + imageid + ".png"
-        img = mpimg.imread(image_filename)
-
-        img_prediction = get_prediction(img)
-        oimg = make_img_overlay(img, img_prediction)
+    # Get prediction overlaid on the original image 
+    def get_prediction_with_overlay(prediction, overlay_with_file):
+        img = mpimg.imread(overlay_with_file)
+        oimg = make_img_overlay(img, prediction)
 
         return oimg
 
@@ -510,8 +505,10 @@ def main(argv=None):  # pylint: disable=unused-argument
             imageid = "satImage_%.3d" % i
             image_filename = train_data_filename + imageid + ".png"
             pimg = get_prediction(mpimg.imread(image_filename))
-            pimg = 1 - pimg
-            scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", pimg)
+            scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", 1-pimg)
+            #overlays
+            oimg = get_prediction_with_overlay(pimg, 'training/images/'+imageid+'.png')
+            oimg.save(prediction_training_dir + "overlay_" + str(i) + ".png")
         
         # Getting the prediction and overlay for the test images. Stored in 'predictions_test'
         print ("Running prediction on test set")
