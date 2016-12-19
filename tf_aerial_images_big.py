@@ -27,7 +27,6 @@ PIXEL_DEPTH = 255
 NUM_LABELS = 2
 TRAINING_SIZE = 100  # ideally: 100
 TEST_SIZE = 50  # ideally: 50
-VALIDATION_SIZE = 30  # Size of the validation set.
 SEED = 464972  # Set to None for random seed.
 BATCH_SIZE = 16  # 64 (?)
 NUM_EPOCHS = 1
@@ -53,22 +52,11 @@ test_data_filename = 'test_set_images/test_'
 
 
 def pad_image(im):
-    imgwidth = im.shape[0]
-    imgheight = im.shape[1]
-    is_2d = len(im.shape) < 3
-    assert(is_2d is False)
-
     # pad the image with 0.5 (gray)
-    if is_2d:
-        padded_image = numpy.full(
-            (IMG_PATCH_SIZE + im.shape[0] + IMG_PATCH_SIZE, IMG_PATCH_SIZE + im.shape[1] + IMG_PATCH_SIZE), 0.5,
-            dtype='float32')
-        padded_image[IMG_PATCH_SIZE:IMG_PATCH_SIZE + im.shape[0], IMG_PATCH_SIZE:IMG_PATCH_SIZE + im.shape[1]] = im
-    else:
-        padded_image = numpy.full(
-            (IMG_PATCH_SIZE + im.shape[0] + IMG_PATCH_SIZE, IMG_PATCH_SIZE + im.shape[1] + IMG_PATCH_SIZE, im.shape[2]),
-            0.5, dtype='float32')
-        padded_image[IMG_PATCH_SIZE:IMG_PATCH_SIZE + im.shape[0], IMG_PATCH_SIZE:IMG_PATCH_SIZE + im.shape[1], :] = im
+    padded_image = numpy.full(
+        (IMG_PATCH_SIZE + im.shape[0] + IMG_PATCH_SIZE, IMG_PATCH_SIZE + im.shape[1] + IMG_PATCH_SIZE, im.shape[2]),
+        0.5, dtype='float32')
+    padded_image[IMG_PATCH_SIZE:IMG_PATCH_SIZE + im.shape[0], IMG_PATCH_SIZE:IMG_PATCH_SIZE + im.shape[1], :] = im
     return padded_image
 
 
@@ -131,7 +119,7 @@ def get_labels_from_simple_labels(train_labels_simple):
     ret = []
     for x in train_labels_simple:
         if x == 0:
-            ret.append([1, 0])
+            ret.append([1, 0])  # note it's kind of backwards...
         else:
             ret.append([0, 1])
     return numpy.array(ret)
@@ -151,11 +139,8 @@ def label_to_img(imgwidth, imgheight, labels):
     idx = 0
     for i in range(0,imgheight):
         for j in range(0,imgwidth):
-            if labels[idx][0] > 0.5:
-                l = 1
-            else:
-                l = 0
-            array_labels[j, i] = l
+            # note it's kind of backwards... (because we mapped: 0 -> [1,0], 1 -> [0,1])
+            array_labels[j, i] = 1 - labels[idx][0]
             idx = idx + 1
     return array_labels
 
@@ -181,19 +166,6 @@ def concatenate_images(img, gt_img):
         img8 = img_float_to_uint8(img)
         cimg = numpy.concatenate((img8, gt_img_3c), axis=1)
     return cimg
-
-
-def make_img_overlay(img, predicted_img):
-    w = img.shape[0]
-    h = img.shape[1]
-    color_mask = numpy.zeros((w, h, 3), dtype=numpy.uint8)
-    color_mask[:,:,0] = predicted_img*PIXEL_DEPTH
-
-    img8 = img_float_to_uint8(img)
-    background = Image.fromarray(img8, 'RGB').convert("RGBA")
-    overlay = Image.fromarray(color_mask, 'RGB').convert("RGBA")
-    new_img = Image.blend(background, overlay, 0.2)
-    return new_img
 
 
 def main(argv=None):  # pylint: disable=unused-argument
@@ -359,9 +331,6 @@ def main(argv=None):  # pylint: disable=unused-argument
         output_prediction = numpy.concatenate(output_predictions)
         img_prediction = label_to_img(img.shape[0], img.shape[1], output_prediction)
 
-        # the hole-filling procedure
-        img_prediction = ndi.binary_fill_holes(img_prediction, structure=numpy.ones((3, 3))).astype(int)
-
         return img_prediction
 
     # Get a concatenation of the prediction and groundtruth for given input file
@@ -375,26 +344,6 @@ def main(argv=None):  # pylint: disable=unused-argument
         cimg = concatenate_images(img, img_prediction)
 
         return cimg
-    
-
-    # Get prediction overlaid on the original image 
-    def get_prediction_with_overlay(prediction, overlay_with_file):
-        img = mpimg.imread(overlay_with_file)
-        oimg = make_img_overlay(img, prediction)
-
-        return oimg
-
-
-    def get_prediction_with_overlay_test(filename, image_idx):
-
-        imageid = "test_" + str(image_idx)
-        image_filename = filename + imageid + ".png"
-        img = mpimg.imread(image_filename)
-
-        img_prediction = get_prediction(img)
-        oimg = make_img_overlay(img, img_prediction)
-
-        return oimg
 
 
     # Training computation: logits + cross-entropy loss.
@@ -423,10 +372,8 @@ def main(argv=None):  # pylint: disable=unused-argument
     learning_rate = tf.train.exponential_decay(
         0.01,                # Base learning rate.
         batch * BATCH_SIZE,  # Current index into the dataset.
-        train_size,          # Decay step.
-        0.001,               # Decay rate. (note that this is per one epoch;
-                                            # in our case the epoch is enormous
-                                            # and we never perform a whole epoch)
+        2000000,             # Decay step.
+        0.95,                # Decay rate. (note that decay is slow)
         staircase=True)
 
     # Use simple momentum for the optimization.
@@ -491,7 +438,7 @@ def main(argv=None):  # pylint: disable=unused-argument
                         feed_dict=feed_dict)
 
                     if step % RECORDING_STEP == 0:
-                        pri nt('Epoch %.2f' % (float(step) * BATCH_SIZE / train_size))
+                        print('Epoch %.2f' % (float(step) * BATCH_SIZE / train_size))
                         print('Minibatch loss: %.3f, learning rate: %.6f' % (l, lr))
                         print('Minibatch error: %.1f%%' % error_rate(predictions, batch_labels))
                         sys.stdout.flush()
@@ -501,32 +448,28 @@ def main(argv=None):  # pylint: disable=unused-argument
                         save_path = saver.save(s, FLAGS.train_dir + "/model.ckpt")
                         print("Model saved in file: %s" % save_path)
 
-        # Getting the prediction and overlay for the training images. Stored in 'predictions_training'
+        # Getting the prediction heat-map for the training images. Stored in 'predictions_training'
         print ("Running prediction on training set")
         prediction_training_dir = "predictions_training/"
+        if not os.path.isdir(prediction_training_dir):
+            os.mkdir(prediction_training_dir)
         for i in range(1, TRAINING_SIZE+1):
             print("Processing image", i)
             imageid = "satImage_%.3d" % i
             image_filename = train_data_filename + imageid + ".png"
             pimg = get_prediction(mpimg.imread(image_filename))
-            scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", 1-pimg)
-            #overlays
-            oimg = get_prediction_with_overlay(pimg, 'training/images/'+imageid+'.png')
-            oimg.save(prediction_training_dir + "overlay_" + str(i) + ".png")
-        
-        # Getting the prediction and overlay for the test images. Stored in 'predictions_test'
+            scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", pimg)
+
+        # Getting the prediction heat-map for the test images. Stored in 'predictions_test'
         print ("Running prediction on test set")
         prediction_test_dir = "predictions_test/"
         if not os.path.isdir(prediction_test_dir):
             os.mkdir(prediction_test_dir)
         for i in range(1, TEST_SIZE+1):
             print("Processing image", i)
-            filename_test = test_data_filename + str(i) + '/test_' + str(i) + '.png'
-            pimg = get_prediction(mpimg.imread(filename_test))
-            pimg = 1 - pimg
+            image_filename = test_data_filename + str(i) + '/test_' + str(i) + '.png'
+            pimg = get_prediction(mpimg.imread(image_filename))
             scipy.misc.imsave(prediction_test_dir + "prediction_" + str(i) + ".png", pimg)
-            oimg = get_prediction_with_overlay_test(test_data_filename + str(i) + '/', i)
-            oimg.save(prediction_test_dir + "overlay_" + str(i) + ".png")
 
 if __name__ == '__main__':
     tf.app.run()
