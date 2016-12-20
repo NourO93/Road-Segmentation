@@ -305,6 +305,9 @@ def main(argv=None):  # pylint: disable=unused-argument
         output_prediction = s.run(output)
         img_prediction = label_to_img(img.shape[0], img.shape[1], IMG_PATCH_SIZE, IMG_PATCH_SIZE, output_prediction)
 
+        # hole-filling
+        img_prediction = ndi.binary_fill_holes(img_prediction, structure=numpy.ones((3, 3))).astype(int)
+
         return img_prediction
 
     # Get a concatenation of the prediction and groundtruth for given input file
@@ -321,14 +324,9 @@ def main(argv=None):  # pylint: disable=unused-argument
     
 
     # Get prediction overlaid on the original image for given input file
-    def get_prediction_with_overlay(filename, image_idx):
-
-        imageid = "satImage_%.3d" % image_idx
-        image_filename = filename + imageid + ".png"
-        img = mpimg.imread(image_filename)
-
-        img_prediction = get_prediction(img)
-        oimg = make_img_overlay(img, img_prediction)
+    def get_prediction_with_overlay(prediction, overlay_with_file):
+        img = mpimg.imread(overlay_with_file)
+        oimg = make_img_overlay(img, prediction)
 
         return oimg
     
@@ -535,8 +533,11 @@ def main(argv=None):  # pylint: disable=unused-argument
             imageid = "satImage_%.3d" % i
             image_filename = train_data_filename + imageid + ".png"
             pimg = get_prediction(mpimg.imread(image_filename))
-            pimg = 1 - pimg
-            scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", pimg)
+            scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", 1-pimg)
+            #overlays
+            oimg = get_prediction_with_overlay(pimg, 'training/images/'+imageid+'.png')
+            oimg.save(prediction_training_dir + "overlay_" + str(i) + ".png")
+            
         
         #Getting the prediction and overlay for the test images. Stored in 'predictions_test'
         print ("Running prediction on test set")
@@ -546,10 +547,8 @@ def main(argv=None):  # pylint: disable=unused-argument
         for i in range(1, TEST_SIZE+1):
             filename_test = test_data_filename + str(i) + '/test_' + str(i) + '.png'
             pimg = get_prediction(mpimg.imread(filename_test))
-            pimg = ndi.binary_fill_holes(pimg, structure=numpy.ones((3,3))).astype(int)
-            pimg = 1 - pimg
-            scipy.misc.imsave(prediction_test_dir + "prediction_" + str(i) + ".png", pimg)
-            
+            scipy.misc.imsave(prediction_test_dir + "prediction_" + str(i) + ".png", 1-pimg)
+            #overlays
             oimg = get_prediction_with_overlay_test(test_data_filename + str(i) + '/', i)
             oimg.save(prediction_test_dir + "overlay_" + str(i) + ".png")
 
