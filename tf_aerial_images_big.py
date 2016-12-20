@@ -25,15 +25,15 @@ import tensorflow as tf
 NUM_CHANNELS = 3  # RGB images
 PIXEL_DEPTH = 255
 NUM_LABELS = 2
-TRAINING_SIZE = 127  # ideally: 100 + any extra generated training images
+TRAINING_SET = range(31, 126)  # the first couple of images are left for validation
 TEST_SIZE = 50  # ideally: 50
 SEED = 464972  # Set to None for random seed.
 BATCH_SIZE = 16  # 64 (?)
-NUM_EPOCHS = 1
+NUM_EPOCHS = 1  # actually 1 epoch takes 4 days, so we just kill the training process after some time...
 RESTORE_MODEL = False  # If True, restore existing model instead of training a new one
 RECORDING_STEP = 1000
 SAVING_MODEL_TO_DISK_STEP = 10000
-BATCH_SIZE_FOR_PREDICTION = 500
+BATCH_SIZE_FOR_PREDICTION = 32
 PADDING_COLOR = 0.0  # 0.0 = black, 0.5 = gray
 SPECIAL_PADDING_COLOR_FOR_GROUNDTRUTH = 0.54  # pixels which have this colour in the groundtruth come from padding during a rotation and should not be used
                                               # warning: if this is set to 0.5 in create_rotated_training_set.py, then it comes up at 0.54 in the image files...
@@ -63,9 +63,9 @@ def pad_image(im):
     return padded_image
 
 
-def get_padded_images(filename, num_images):
+def get_padded_images(filename, images_range):
     imgs = []
-    for i in range(1, num_images+1):
+    for i in images_range:
         imageid = "satImage_%.3d" % i
         image_filename = filename + imageid + ".png"
         if os.path.isfile(image_filename):
@@ -77,9 +77,9 @@ def get_padded_images(filename, num_images):
     return imgs
 
 
-def extract_samples_of_labels(filename, num_images):
+def extract_samples_of_labels(filename, images_range):
     gt_imgs = []
-    for i in range(1, num_images+1):
+    for i in images_range:
         imageid = "satImage_%.3d" % i
         image_filename = filename + imageid + ".png"
         if os.path.isfile(image_filename):
@@ -163,8 +163,8 @@ def main(argv=None):  # pylint: disable=unused-argument
 
     def prepare_training_tuples_and_simple_labels():
         # preparing tuples takes ~20 seconds, but longer if rewritten to numpy
-        train_images_padded = get_padded_images(train_data_filename, TRAINING_SIZE)
-        train_tuples_of_label = extract_samples_of_labels(train_labels_filename, TRAINING_SIZE)
+        train_images_padded = get_padded_images(train_data_filename, TRAINING_SET)
+        train_tuples_of_label = extract_samples_of_labels(train_labels_filename, TRAINING_SET)
 
         print('Tuples and labels are loaded')
 
@@ -431,7 +431,7 @@ def main(argv=None):  # pylint: disable=unused-argument
         prediction_training_dir = "predictions_training/"
         if not os.path.isdir(prediction_training_dir):
             os.mkdir(prediction_training_dir)
-        for i in range(1, TRAINING_SIZE+1):
+        for i in TRAINING_SET:
             print("Processing image", i)
             imageid = "satImage_%.3d" % i
             image_filename = train_data_filename + imageid + ".png"

@@ -15,9 +15,9 @@ import numpy
 import random
 
 
-TRAINING_SIZE = 100
+TRAINING_SET = range(31, 101)  # the first couple of images are left for validation
 FIRST_NUMBER_TO_WRITE_TO = 101
-PROBABILITY_OF_ROTATING = 0.3
+PROBABILITY_OF_ROTATING = 0.35
 PADDING_COLOR = 0.0  # 0.0 = black, 0.5 = gray
 SPECIAL_PADDING_COLOR_FOR_GROUNDTRUTH = 0.5
 
@@ -30,7 +30,7 @@ next_number_to_write_to = FIRST_NUMBER_TO_WRITE_TO
 
 random.seed(3500)
 
-for i in range(1, TRAINING_SIZE+1):
+for i in TRAINING_SET:
     if random.uniform(0, 1) < PROBABILITY_OF_ROTATING:
         print('Image', i, 'was chosen')
 
