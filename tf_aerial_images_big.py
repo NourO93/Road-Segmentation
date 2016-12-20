@@ -7,30 +7,31 @@ Credits: Aurelien Lucchi, ETH Zürich
 
 
 
-import gzip
 import os
 import sys
-import urllib
 import scipy.misc
 import matplotlib.image as mpimg
-from PIL import Image
-from scipy import ndimage as ndi
 import math
-import code
-import tensorflow.python.platform
 import numpy
 import random
 import tensorflow as tf
 
+RESTORE_MODEL = False  # If True, restore existing model instead of training a new one
+DO_PREDICTION_FOR_TESTING_SET = True
+DO_PREDICTION_FOR_VALIDATION_SET = True
+DO_PREDICTION_FOR_TRAINING_SET = False
+VALIDATION_SET = range(1, 31)  # the first couple of images are left for validation
+TRAINING_SET = range(31, 126)  # the first couple of images are left for validation
+TEST_SIZE = 50  # ideally: 50
+
+# Set image patch size in pixels (should be a multiple of 4 for some reason)
+IMG_PATCH_SIZE = 48  # ideally, like 48
 NUM_CHANNELS = 3  # RGB images
 PIXEL_DEPTH = 255
 NUM_LABELS = 2
-TRAINING_SET = range(31, 126)  # the first couple of images are left for validation
-TEST_SIZE = 50  # ideally: 50
 SEED = 464972  # Set to None for random seed.
 BATCH_SIZE = 16  # 64 (?)
 NUM_EPOCHS = 1  # actually 1 epoch takes 4 days, so we just kill the training process after some time...
-RESTORE_MODEL = False  # If True, restore existing model instead of training a new one
 RECORDING_STEP = 1000
 SAVING_MODEL_TO_DISK_STEP = 10000
 BATCH_SIZE_FOR_PREDICTION = 32
@@ -38,8 +39,6 @@ PADDING_COLOR = 0.0  # 0.0 = black, 0.5 = gray
 SPECIAL_PADDING_COLOR_FOR_GROUNDTRUTH = 0.54  # pixels which have this colour in the groundtruth come from padding during a rotation and should not be used
                                               # warning: if this is set to 0.5 in create_rotated_training_set.py, then it comes up at 0.54 in the image files...
 
-# Set image patch size in pixels (should be a multiple of 4 for some reason)
-IMG_PATCH_SIZE = 48  # ideally, like 48
 
 tf.app.flags.DEFINE_string('train_dir', 'tmp/mnist',
                            """Directory where to write event logs """
@@ -426,28 +425,44 @@ def main(argv=None):  # pylint: disable=unused-argument
                         save_path = saver.save(s, FLAGS.train_dir + "/model.ckpt")
                         print("Model saved in file: %s" % save_path)
 
-        # Getting the prediction heat-map for the training images. Stored in 'predictions_training'
-        print ("Running prediction on training set")
-        prediction_training_dir = "predictions_training/"
-        if not os.path.isdir(prediction_training_dir):
-            os.mkdir(prediction_training_dir)
-        for i in TRAINING_SET:
-            print("Processing image", i)
-            imageid = "satImage_%.3d" % i
-            image_filename = train_data_filename + imageid + ".png"
-            pimg = get_prediction(mpimg.imread(image_filename))
-            scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", pimg)
 
-        # Getting the prediction heat-map for the test images. Stored in 'predictions_test'
-        print ("Running prediction on test set")
-        prediction_test_dir = "predictions_test/"
-        if not os.path.isdir(prediction_test_dir):
-            os.mkdir(prediction_test_dir)
-        for i in range(1, TEST_SIZE+1):
-            print("Processing image", i)
-            image_filename = test_data_filename + str(i) + '/test_' + str(i) + '.png'
-            pimg = get_prediction(mpimg.imread(image_filename))
-            scipy.misc.imsave(prediction_test_dir + "prediction_" + str(i) + ".png", pimg)
+        if DO_PREDICTION_FOR_TRAINING_SET:
+            # Getting the prediction heat-map for the training images. Stored in 'predictions_training'
+            print ("Running prediction on training set")
+            prediction_training_dir = "predictions_training/"
+            if not os.path.isdir(prediction_training_dir):
+                os.mkdir(prediction_training_dir)
+            for i in TRAINING_SET:
+                print("Processing image", i)
+                imageid = "satImage_%.3d" % i
+                image_filename = train_data_filename + imageid + ".png"
+                pimg = get_prediction(mpimg.imread(image_filename))
+                scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", pimg)
+
+        if DO_PREDICTION_FOR_VALIDATION_SET:
+            # Getting the prediction heat-map for the validation images. Stored in 'predictions_training'
+            print ("Running prediction on validation set")
+            prediction_training_dir = "predictions_training/"
+            if not os.path.isdir(prediction_training_dir):
+                os.mkdir(prediction_training_dir)
+            for i in VALIDATION_SET:
+                print("Processing image", i)
+                imageid = "satImage_%.3d" % i
+                image_filename = train_data_filename + imageid + ".png"
+                pimg = get_prediction(mpimg.imread(image_filename))
+                scipy.misc.imsave(prediction_training_dir + "prediction_" + str(i) + ".png", pimg)
+
+        if DO_PREDICTION_FOR_TESTING_SET:
+            # Getting the prediction heat-map for the test images. Stored in 'predictions_test'
+            print ("Running prediction on test set")
+            prediction_test_dir = "predictions_test/"
+            if not os.path.isdir(prediction_test_dir):
+                os.mkdir(prediction_test_dir)
+            for i in range(1, TEST_SIZE+1):
+                print("Processing image", i)
+                image_filename = test_data_filename + str(i) + '/test_' + str(i) + '.png'
+                pimg = get_prediction(mpimg.imread(image_filename))
+                scipy.misc.imsave(prediction_test_dir + "prediction_" + str(i) + ".png", pimg)
 
 if __name__ == '__main__':
     tf.app.run()
