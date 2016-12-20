@@ -49,7 +49,7 @@ FLAGS = tf.app.flags.FLAGS
 data_dir = 'training/'
 train_data_filename = data_dir + 'images/'
 train_labels_filename = data_dir + 'groundtruth/'
-test_data_filename = 'test_set_images/test_'
+test_data_filename = 'test_set_images/'
 
 
 
@@ -460,7 +460,7 @@ def main(argv=None):  # pylint: disable=unused-argument
                 os.mkdir(prediction_test_dir)
             for i in range(1, TEST_SIZE+1):
                 print("Processing image", i)
-                image_filename = test_data_filename + str(i) + '/test_' + str(i) + '.png'
+                image_filename = test_data_filename + '/test_' + str(i) + '.png'
                 pimg = get_prediction(mpimg.imread(image_filename))
                 scipy.misc.imsave(prediction_test_dir + "prediction_" + str(i) + ".png", pimg)
 
