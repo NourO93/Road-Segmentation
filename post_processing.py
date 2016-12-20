@@ -83,57 +83,66 @@ def greyscale_to_pred(im, w, h, hole_filling):
     if(hole_filling == True):
         pred = fill_holes(pred)
     return pred
-    
 
-test_pred_dir = 'predictions_test'
-test_dir = 'test_set_images'
-test_preds = [f for f in listdir(test_pred_dir) if (isfile(join(test_pred_dir, f)) and f.startswith('prediction'))]
-test_preds = test_preds
-NUM_TEST_PREDS = len(test_preds)
+def get_chunky_gt():    
+	dire = 'training/groundtruth'
+	gt = [os.path.join(dire, f) for f in listdir(dire) if f.startswith('sat')]
+	for gt_im in gt:
+	    img = mpimg.imread(gt_im)
+	    pred = img_to_pred(img, 16, 16, False)
+	    scipy.misc.imsave(os.path.join(dire, 'chunky_' + gt_im[21:]), pred)
+ 
+if __name__ == '__main__':   
 
-# Get predicted images in binary
-for test_pred in test_preds:
-    img = mpimg.imread(os.path.join(test_pred_dir, test_pred))
-    pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
-    scipy.misc.imsave(os.path.join(test_pred_dir, 'bw_' + test_pred), pred)
-    
-# Overlay for test
-for i in range(1, NUM_TEST_PREDS + 1):
-    img = mpimg.imread(os.path.join(test_dir, 'test_' + str(i) + '.png'))
-    prd = mpimg.imread(os.path.join(test_pred_dir, 'bw_prediction_') + str(i) + '.png')
-    overlay = make_img_overlay(img, prd)
-    overlay.save(os.path.join(test_pred_dir, 'overlay_' + str(i) + '.png'))
-    
-if(NUM_TEST_PREDS == 50):
-    submission_filename = 'submission.csv'
-    masks_to_submission(submission_filename, *test_preds)
-    
+	test_pred_dir = 'predictions_test'
+	test_dir = 'test_set_images'
+	test_preds = [f for f in listdir(test_pred_dir) if (isfile(join(test_pred_dir, f)) and f.startswith('prediction'))]
+	test_preds = test_preds
+	NUM_TEST_PREDS = len(test_preds)
 
-########## TRAIN DATA ##############
+	# Get predicted images in binary
+	for test_pred in test_preds:
+	    img = mpimg.imread(os.path.join(test_pred_dir, test_pred))
+	    pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
+	    scipy.misc.imsave(os.path.join(test_pred_dir, 'bw_' + test_pred), pred)
+	    
+	# Overlay for test
+	for i in range(1, NUM_TEST_PREDS + 1):
+	    img = mpimg.imread(os.path.join(test_dir, 'test_' + str(i) + '.png'))
+	    prd = mpimg.imread(os.path.join(test_pred_dir, 'bw_prediction_') + str(i) + '.png')
+	    overlay = make_img_overlay(img, prd)
+	    overlay.save(os.path.join(test_pred_dir, 'overlay_' + str(i) + '.png'))
+	    
+	if(NUM_TEST_PREDS == 50):
+	    submission_filename = 'submission.csv'
+	    masks_to_submission(submission_filename, *test_preds)
+	    
 
-train_pred_dir = 'predictions_training'
-train_dir = 'training'
-train_preds = [f for f in listdir(train_pred_dir) if (isfile(join(train_pred_dir, f)) and f.startswith('prediction'))]
-NUM_TRAIN_PREDS = len(train_preds)
+	########## TRAIN DATA ##############
 
-for train_pred in train_preds:
-    img = mpimg.imread(os.path.join(train_pred_dir, train_pred))
-    pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
-    scipy.misc.imsave(os.path.join(train_pred_dir, 'bw_' + train_pred), pred)
-    
-for i in range(1, NUM_TRAIN_PREDS + 1):
-    imId = "satImage_%.3d" % i
-    img = mpimg.imread(os.path.join(train_dir, 'images', imId + '.png'))
-    prd = mpimg.imread(os.path.join(train_pred_dir, 'bw_prediction_') + str(i) + '.png')
-    overlay = make_img_overlay(img, prd)
-    overlay.save(os.path.join(train_pred_dir, 'overlay_' + str(i) + '.png'))
-    
-total_score=0.0
-for i in range(1, NUM_TRAIN_PREDS + 1):
-    gt='training/groundtruth'+("/chunky_satImage_%.3d" % i)+'.png'
-    pred_nn='predictions_training/bw_prediction_'+str(i)+'.png'
-    sc=mfs_files(pred_nn, gt,foreground_threshold)
-    total_score+=sc
-    print(('Score for Training sample %.3d'%i)+(' %.3f'%sc))
-print('Average Score %.3f'%(total_score/NUM_TRAIN_PREDS))
+	train_pred_dir = 'predictions_training'
+	train_dir = 'training'
+	train_preds = [f for f in listdir(train_pred_dir) if (isfile(join(train_pred_dir, f)) and f.startswith('prediction'))]
+	NUM_TRAIN_PREDS = len(train_preds)
+
+	for train_pred in train_preds:
+	    img = mpimg.imread(os.path.join(train_pred_dir, train_pred))
+	    pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
+	    scipy.misc.imsave(os.path.join(train_pred_dir, 'bw_' + train_pred), pred)
+	    
+	for i in range(1, NUM_TRAIN_PREDS + 1):
+	    imId = "satImage_%.3d" % i
+	    img = mpimg.imread(os.path.join(train_dir, 'images', imId + '.png'))
+	    prd = mpimg.imread(os.path.join(train_pred_dir, 'bw_prediction_') + str(i) + '.png')
+	    overlay = make_img_overlay(img, prd)
+	    overlay.save(os.path.join(train_pred_dir, 'overlay_' + str(i) + '.png'))
+	    
+	total_score=0.0
+	for i in range(1, NUM_TRAIN_PREDS + 1):
+	    gt='training/groundtruth'+("/chunky_satImage_%.3d" % i)+'.png'
+	    pred_nn='predictions_training/bw_prediction_'+str(i)+'.png'
+	    sc=mfs_files(pred_nn, gt,foreground_threshold)
+	    total_score+=sc
+	    print(('Score for Training sample %.3d'%i)+(' %.3f'%sc))
+	print('Average Score %.3f'%(total_score/NUM_TRAIN_PREDS))
 
