@@ -25,15 +25,18 @@ import tensorflow as tf
 NUM_CHANNELS = 3  # RGB images
 PIXEL_DEPTH = 255
 NUM_LABELS = 2
-TRAINING_SIZE = 100  # ideally: 100
+TRAINING_SIZE = 127  # ideally: 100 + any extra generated training images
 TEST_SIZE = 50  # ideally: 50
 SEED = 464972  # Set to None for random seed.
 BATCH_SIZE = 16  # 64 (?)
 NUM_EPOCHS = 1
-RESTORE_MODEL = True  # If True, restore existing model instead of training a new one
+RESTORE_MODEL = False  # If True, restore existing model instead of training a new one
 RECORDING_STEP = 1000
 SAVING_MODEL_TO_DISK_STEP = 10000
 BATCH_SIZE_FOR_PREDICTION = 500
+PADDING_COLOR = 0.0  # 0.0 = black, 0.5 = gray
+SPECIAL_PADDING_COLOR_FOR_GROUNDTRUTH = 0.54  # pixels which have this colour in the groundtruth come from padding during a rotation and should not be used
+                                              # warning: if this is set to 0.5 in create_rotated_training_set.py, then it comes up at 0.54 in the image files...
 
 # Set image patch size in pixels (should be a multiple of 4 for some reason)
 IMG_PATCH_SIZE = 48  # ideally, like 48
@@ -55,7 +58,7 @@ def pad_image(im):
     # pad the image with 0.5 (gray)
     padded_image = numpy.full(
         (IMG_PATCH_SIZE + im.shape[0] + IMG_PATCH_SIZE, IMG_PATCH_SIZE + im.shape[1] + IMG_PATCH_SIZE, im.shape[2]),
-        0.5, dtype='float32')
+        PADDING_COLOR, dtype='float32')
     padded_image[IMG_PATCH_SIZE:IMG_PATCH_SIZE + im.shape[0], IMG_PATCH_SIZE:IMG_PATCH_SIZE + im.shape[1], :] = im
     return padded_image
 
@@ -92,7 +95,12 @@ def extract_samples_of_labels(filename, num_images):
         for i in range(0, gt_imgs[k].shape[1]): # height
             for j in range(0, gt_imgs[k].shape[0]): # width
                 is_on = gt_imgs[k][j,i] > 0.5
-                ret[is_on].append((k,j,i))
+                if abs(gt_imgs[k][j,i] - SPECIAL_PADDING_COLOR_FOR_GROUNDTRUTH) < 0.01:
+                    # ignore this pixel, since it comes from a padding-during-rotation
+                    # (or possibly is legitimate, but is close to 0.5 so it doesn't hurt to not use it)
+                    pass
+                else:
+                    ret[is_on].append((k, j, i))
     return ret
 
 
