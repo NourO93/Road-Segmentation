@@ -10,7 +10,10 @@ import re
 from evaluation import mfs_files
 from PIL import Image
 from scipy import ndimage as ndi
+import sys
 
+from estimate_probability import *
+from ip_optimizer import *
 
 
 IMG_PATCH_SIZE = 16
@@ -63,86 +66,129 @@ def make_img_overlay(img, predicted_img):
     
 def fill_holes(im):
     return 1 - ndi.binary_fill_holes(1 - im, structure=np.ones((3,3))).astype(int)
-    
-    
-def greyscale_to_pred(im, w, h, hole_filling):
+
+
+def greyscale_to_pred_advanced(im, w, h, hole_filling):
+    print('Rounding the fractional per-pixel prediction to the final prediction...')
+
     imgwidth = im.shape[0]
     imgheight = im.shape[1]
     pred = np.zeros(im.shape)
-    is_2d = len(im.shape) < 3
+    assert (len(im.shape) < 3)
+
+    # for each patch compute its likelihood (number in [0,1])
+    prob_estimate = np.zeros((imgwidth // w, imgheight // h))
     for i in range(0,imgheight,h):
         for j in range(0,imgwidth,w):
-            if is_2d:
-                im_patch = im[j:j+w, i:i+h]
-                if(np.mean(im_patch) > foreground_threshold):
-                    pred[j:j+w, i:i+h] = np.ones(im_patch.shape)
-                else:
-                    pred[j:j+w, i:i+h] = np.zeros(im_patch.shape)
+            im_patch = im[j:j + w, i:i + h]
+            prob_estimate[j//w, i//h] = estimate_probability(im_patch)
+            prob_estimate[j//w,i//h] = max(min(prob_estimate[j//w,i//h], 1 - 1e-9), 1e-9)  # thresholding to avoid explosion
+
+    # get the log-transform (number in (-inf,inf))
+    weights = np.log(prob_estimate / (1 - prob_estimate))
+
+    # invoke our IP model
+    border_penalty = 0
+    print('Starting IP')
+    chosen_patches = get_integer_programming_solution(weights, border_penalty)
+    print('IP done')
+
+    # save the results
+    for i in range(0,imgheight,h):
+        for j in range(0,imgwidth,w):
+            if chosen_patches[j//w,i//h]:
+                pred[j:j+w, i:i+h] = np.ones(im_patch.shape)
             else:
-                print('Not 2d')
-    if(hole_filling == True):
+                pred[j:j+w, i:i+h] = np.zeros(im_patch.shape)
+    #if hole_filling:
+    #    pred = fill_holes(pred)
+    return pred
+
+
+
+
+def greyscale_to_pred_simple(im, w, h, hole_filling):
+    print('Simple rounding the fractional per-pixel prediction to the final prediction...')
+    imgwidth = im.shape[0]
+    imgheight = im.shape[1]
+    pred = np.zeros(im.shape)
+    assert(len(im.shape) < 3)
+    for i in range(0,imgheight,h):
+        for j in range(0,imgwidth,w):
+            im_patch = im[j:j+w, i:i+h]
+            if np.mean(im_patch) > foreground_threshold:
+                pred[j:j+w, i:i+h] = np.ones(im_patch.shape)
+            else:
+                pred[j:j+w, i:i+h] = np.zeros(im_patch.shape)
+    if hole_filling:
         pred = fill_holes(pred)
     return pred
 
+
+def greyscale_to_pred(im, w, h, hole_filling):
+    return greyscale_to_pred_simple(im, w, h, hole_filling)
+
+
 def get_chunky_gt():    
-	dire = 'training/groundtruth'
-	gt = [os.path.join(dire, f) for f in listdir(dire) if f.startswith('sat')]
-	for gt_im in gt:
-	    img = mpimg.imread(gt_im)
-	    pred = img_to_pred(img, 16, 16, False)
-	    scipy.misc.imsave(os.path.join(dire, 'chunky_' + gt_im[21:]), pred)
+    dire = 'training/groundtruth'
+    gt = [os.path.join(dire, f) for f in listdir(dire) if f.startswith('sat')]
+    for gt_im in gt:
+        img = mpimg.imread(gt_im)
+        pred = img_to_pred(img, 16, 16, False)
+        scipy.misc.imsave(os.path.join(dire, 'chunky_' + gt_im[21:]), pred)
  
 if __name__ == '__main__':   
 
-	test_pred_dir = 'predictions_test'
-	test_dir = 'test_set_images'
-	test_preds = [f for f in listdir(test_pred_dir) if (isfile(join(test_pred_dir, f)) and f.startswith('prediction'))]
-	test_preds = test_preds
-	NUM_TEST_PREDS = len(test_preds)
+    test_pred_dir = 'predictions_test'
+    test_dir = 'test_set_images'
+    test_preds = [f for f in listdir(test_pred_dir) if (isfile(join(test_pred_dir, f)) and f.startswith('prediction'))]
+    test_preds = test_preds
+    NUM_TEST_PREDS = len(test_preds)
 
-	# Get predicted images in binary
-	for test_pred in test_preds:
-	    img = mpimg.imread(os.path.join(test_pred_dir, test_pred))
-	    pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
-	    scipy.misc.imsave(os.path.join(test_pred_dir, 'bw_' + test_pred), pred)
-	    
-	# Overlay for test
-	for i in range(1, NUM_TEST_PREDS + 1):
-	    img = mpimg.imread(os.path.join(test_dir, 'test_' + str(i) + '.png'))
-	    prd = mpimg.imread(os.path.join(test_pred_dir, 'bw_prediction_') + str(i) + '.png')
-	    overlay = make_img_overlay(img, prd)
-	    overlay.save(os.path.join(test_pred_dir, 'overlay_' + str(i) + '.png'))
-	    
-	if(NUM_TEST_PREDS == 50):
-	    submission_filename = 'submission.csv'
-	    masks_to_submission(submission_filename, *test_preds)
-	    
+    # Get predicted images in binary
+    for test_pred in test_preds:
+        img = mpimg.imread(os.path.join(test_pred_dir, test_pred))
+        pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
+        scipy.misc.imsave(os.path.join(test_pred_dir, 'bw_' + test_pred), pred)
+        print('Saved as', os.path.join(test_pred_dir, 'bw_' + test_pred))
 
-	########## TRAIN DATA ##############
+    # Overlay for test
+    for i in range(1, NUM_TEST_PREDS + 1):
+        img = mpimg.imread(os.path.join(test_dir, 'test_' + str(i) + '.png'))
+        prd = mpimg.imread(os.path.join(test_pred_dir, 'bw_prediction_') + str(i) + '.png')
+        overlay = make_img_overlay(img, prd)
+        overlay.save(os.path.join(test_pred_dir, 'overlay_' + str(i) + '.png'))
+        
+    if(NUM_TEST_PREDS == 50):
+        submission_filename = 'submission.csv'
+        masks_to_submission(submission_filename, *test_preds)
+        
 
-	train_pred_dir = 'predictions_training'
-	train_dir = 'training'
-	train_preds = [f for f in listdir(train_pred_dir) if (isfile(join(train_pred_dir, f)) and f.startswith('prediction'))]
-	NUM_TRAIN_PREDS = len(train_preds)
+    ########## TRAIN DATA ##############
 
-	for train_pred in train_preds:
-	    img = mpimg.imread(os.path.join(train_pred_dir, train_pred))
-	    pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
-	    scipy.misc.imsave(os.path.join(train_pred_dir, 'bw_' + train_pred), pred)
-	    
-	for i in range(1, NUM_TRAIN_PREDS + 1):
-	    imId = "satImage_%.3d" % i
-	    img = mpimg.imread(os.path.join(train_dir, 'images', imId + '.png'))
-	    prd = mpimg.imread(os.path.join(train_pred_dir, 'bw_prediction_') + str(i) + '.png')
-	    overlay = make_img_overlay(img, prd)
-	    overlay.save(os.path.join(train_pred_dir, 'overlay_' + str(i) + '.png'))
-	    
-	total_score=0.0
-	for i in range(1, NUM_TRAIN_PREDS + 1):
-	    gt='training/groundtruth'+("/chunky_satImage_%.3d" % i)+'.png'
-	    pred_nn='predictions_training/bw_prediction_'+str(i)+'.png'
-	    sc=mfs_files(pred_nn, gt,foreground_threshold)
-	    total_score+=sc
-	    print(('Score for Training sample %.3d'%i)+(' %.3f'%sc))
-	print('Average Score %.3f'%(total_score/NUM_TRAIN_PREDS))
+    train_pred_dir = 'predictions_training'
+    train_dir = 'training'
+    train_preds = [f for f in listdir(train_pred_dir) if (isfile(join(train_pred_dir, f)) and f.startswith('prediction'))]
+    NUM_TRAIN_PREDS = len(train_preds)
+
+    for train_pred in train_preds:
+        img = mpimg.imread(os.path.join(train_pred_dir, train_pred))
+        pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
+        scipy.misc.imsave(os.path.join(train_pred_dir, 'bw_' + train_pred), pred)
+        
+    for i in range(1, NUM_TRAIN_PREDS + 1):
+        imId = "satImage_%.3d" % i
+        img = mpimg.imread(os.path.join(train_dir, 'images', imId + '.png'))
+        prd = mpimg.imread(os.path.join(train_pred_dir, 'bw_prediction_') + str(i) + '.png')
+        overlay = make_img_overlay(img, prd)
+        overlay.save(os.path.join(train_pred_dir, 'overlay_' + str(i) + '.png'))
+        
+    total_score=0.0
+    for i in range(1, NUM_TRAIN_PREDS + 1):
+        gt='training/groundtruth'+("/chunky_satImage_%.3d" % i)+'.png'
+        pred_nn='predictions_training/bw_prediction_'+str(i)+'.png'
+        sc=mfs_files(pred_nn, gt,foreground_threshold)
+        total_score+=sc
+        print(('Score for Training sample %.3d'%i)+(' %.3f'%sc))
+    print('Average Score %.3f'%(total_score/NUM_TRAIN_PREDS))
 

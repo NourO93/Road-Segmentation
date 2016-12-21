@@ -17,7 +17,9 @@ def get_integer_programming_solution(weight, border_penalty):
     # vertices: (-1,-1) is the root (outside/border), others are (i,j)
 
     class Edge:
-        # fields: a, b - endpoints, fab, fba: flow variables, z: discrepancy variable
+        # fields: a, b - endpoints,
+        # fab, fba: flow variables (A to B, B to A),
+        # z: discrepancy variable (|x_a - x_b|, only if a != root)
         def __init__(self, a, b):
             self.a = a
             self.b = b
@@ -111,4 +113,4 @@ if __name__ == '__main__':
     weight = numpy.array([[-4, -4, -4],
                                  [-4, 4.1, -4],
                                  [-4, -4, -4]])
-    print(get_integer_programming_solution(weight, border_penalty=0.0))
+    print(get_integer_programming_solution(weight, border_penalty=0.01))
