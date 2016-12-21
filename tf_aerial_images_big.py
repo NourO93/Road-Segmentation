@@ -25,13 +25,14 @@ TRAINING_SET = range(31, 126)  # the first couple of images are left for validat
 TEST_SIZE = 50  # ideally: 50
 
 # Set image patch size in pixels (should be a multiple of 4 for some reason)
-IMG_PATCH_SIZE = 48  # ideally, like 48
+IMG_PATCH_SIZE = 64  # ideally, like 48-64
 NUM_CHANNELS = 3  # RGB images
 PIXEL_DEPTH = 255
 NUM_LABELS = 2
-SEED = 464972  # Set to None for random seed.
-BATCH_SIZE = 16  # 64 (?)
-NUM_EPOCHS = 1  # actually 1 epoch takes 4 days, so we just kill the training process after some time...
+SEED = 464972
+BATCH_SIZE = 32
+NUM_EPOCHS = 0.3  # lots of training
+REGULARIZER = 5e-3
 RECORDING_STEP = 1000
 SAVING_MODEL_TO_DISK_STEP = 10000
 BATCH_SIZE_FOR_PREDICTION = 32
@@ -340,7 +341,7 @@ def main(argv=None):  # pylint: disable=unused-argument
     regularizers = (tf.nn.l2_loss(fc1_weights) + tf.nn.l2_loss(fc1_biases) +
                     tf.nn.l2_loss(fc2_weights) + tf.nn.l2_loss(fc2_biases))
     # Add the regularization term to the loss.
-    loss += 5e-4 * regularizers
+    loss += REGULARIZER * regularizers  # we increased this
 
     # Optimizer: set up a variable that's incremented once per batch and
     # controls the learning rate decay.
@@ -387,13 +388,17 @@ def main(argv=None):  # pylint: disable=unused-argument
 
             training_indices = range(train_size)
 
-            for iepoch in range(NUM_EPOCHS):
+            for iepoch in range(math.ceil(NUM_EPOCHS)):
                 print("Starting epoch number", iepoch+1)
 
                 # Permute training indices
                 perm_indices = numpy.random.permutation(training_indices)
 
                 for step in range (int(train_size / BATCH_SIZE)):
+
+                    if step * BATCH_SIZE > NUM_EPOCHS * train_size:
+                        print('Done training!')
+                        break
 
                     offset = (step * BATCH_SIZE) % (train_size - BATCH_SIZE)
                     batch_indices = perm_indices[offset:(offset + BATCH_SIZE)]
