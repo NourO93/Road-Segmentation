@@ -18,14 +18,14 @@ def mean_f_score(arr,ground_truth,tresh,patch_size=16):
                 subm[i:i+patch_size,j:j+patch_size]=patch
             else:
                 subm[i:i+patch_size,j:j+patch_size]=0.0*patch
-    for i in range(n):
-        for j in range(m):
-            if ground_truth[i][j]>0.5:
-                if subm[i][j]>0.5: tp+=1
-                else: fn+=1
-            else:
-                if subm[i][j]>0.5: fp+=1
-                else: tn+=1
+    for i in range(0,n):
+        for j in range(0,m):
+             if ground_truth[i][j]>0.5:
+                 if subm[i][j]>0.5: tp+=1
+                 else: fn+=1
+             else:
+                 if subm[i][j]>0.5: fp+=1
+                 else: tn+=1
     p=tp*1.0/(tp+fp)
     r=tp*1.0/(tp+fn)
     return 2*p*r/(p+r)

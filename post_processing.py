@@ -19,6 +19,7 @@ from ip_optimizer import *
 IMG_PATCH_SIZE = 16
 
 foreground_threshold = 0.25 # percentage of pixels > 1 required to assign a foreground label to a patch
+gt_treshold = 0.5 # how to round the ground truth
 
 # assign a label to a patch
 def patch_to_label(patch):
@@ -107,7 +108,7 @@ def greyscale_to_pred_advanced(im, w, h, hole_filling):
 
 
 
-def greyscale_to_pred_simple(im, w, h, hole_filling):
+def greyscale_to_pred_simple(im, w, h, treshold, hole_filling):
     print('Simple rounding the fractional per-pixel prediction to the final prediction...')
     imgwidth = im.shape[0]
     imgheight = im.shape[1]
@@ -116,7 +117,7 @@ def greyscale_to_pred_simple(im, w, h, hole_filling):
     for i in range(0,imgheight,h):
         for j in range(0,imgwidth,w):
             im_patch = im[j:j+w, i:i+h]
-            if np.mean(im_patch) > foreground_threshold:
+            if np.mean(im_patch) > treshold:
                 pred[j:j+w, i:i+h] = np.ones(im_patch.shape)
             else:
                 pred[j:j+w, i:i+h] = np.zeros(im_patch.shape)
@@ -125,8 +126,8 @@ def greyscale_to_pred_simple(im, w, h, hole_filling):
     return pred
 
 
-def greyscale_to_pred(im, w, h, hole_filling):
-    return greyscale_to_pred_simple(im, w, h, hole_filling)
+def greyscale_to_pred(im, w, h, treshold, hole_filling):
+    return greyscale_to_pred_simple(im, w, h, treshold, hole_filling)
 
 
 def get_chunky_gt():    
@@ -134,7 +135,7 @@ def get_chunky_gt():
     gt = [os.path.join(dire, f) for f in listdir(dire) if f.startswith('sat')]
     for gt_im in gt:
         img = mpimg.imread(gt_im)
-        pred = img_to_pred(img, 16, 16, False)
+        pred = greyscale_to_pred_simple(img, 16, 16, gt_treshold, False)
         scipy.misc.imsave(os.path.join(dire, 'chunky_' + gt_im[21:]), pred)
  
 if __name__ == '__main__':   
@@ -148,10 +149,10 @@ if __name__ == '__main__':
     # Get predicted images in binary
     for test_pred in test_preds:
         img = mpimg.imread(os.path.join(test_pred_dir, test_pred))
-        pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
+        pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, foreground_threshold, True)
         scipy.misc.imsave(os.path.join(test_pred_dir, 'bw_' + test_pred), pred)
         print('Saved as', os.path.join(test_pred_dir, 'bw_' + test_pred))
-
+    
     # Overlay for test
     for i in range(1, NUM_TEST_PREDS + 1):
         img = mpimg.imread(os.path.join(test_dir, 'test_' + str(i) + '.png'))
@@ -163,17 +164,18 @@ if __name__ == '__main__':
         submission_filename = 'submission.csv'
         masks_to_submission(submission_filename, *test_preds)
         
-
+    get_chunky_gt()
     ########## TRAIN DATA ##############
 
     train_pred_dir = 'predictions_training'
     train_dir = 'training'
     train_preds = [f for f in listdir(train_pred_dir) if (isfile(join(train_pred_dir, f)) and f.startswith('prediction'))]
     NUM_TRAIN_PREDS = len(train_preds)
+    print(NUM_TRAIN_PREDS)
 
     for train_pred in train_preds:
         img = mpimg.imread(os.path.join(train_pred_dir, train_pred))
-        pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, True)
+        pred = greyscale_to_pred(img, IMG_PATCH_SIZE, IMG_PATCH_SIZE, foreground_threshold, True)
         scipy.misc.imsave(os.path.join(train_pred_dir, 'bw_' + train_pred), pred)
         
     for i in range(1, NUM_TRAIN_PREDS + 1):
