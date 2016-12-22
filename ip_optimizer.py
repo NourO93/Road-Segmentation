@@ -113,6 +113,7 @@ def get_integer_programming_solution(weight, border_penalty):
 if __name__ == '__main__':
     # some simple test
     weight = numpy.array([[-4, -4, -4],
-                                 [-4, 4.1, -4],
-                                 [-4, -4, -4]])
+                          [-4, 4.1, -4],
+                          [-4, -4, -4]])
     print(get_integer_programming_solution(weight, border_penalty=0.01))
+    # should take the middle element (and one bordering it)

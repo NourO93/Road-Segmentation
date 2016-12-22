@@ -21,9 +21,9 @@ DO_PREDICTION_FOR_TESTING_SET = True
 DO_PREDICTION_FOR_VALIDATION_SET = False
 DO_PREDICTION_FOR_TRAINING_SET = False
 VALIDATION_SET = range(1, 1)  # the full training set is used
-TRAINING_SET = range(1, 126)
+TRAINING_SET = range(1, 134)
 # VALIDATION_SET = range(1, 31)  # the first couple of images are left for validation
-# TRAINING_SET = range(31, 126)
+# TRAINING_SET = range(31, 134)
 TEST_SIZE = 50
 
 # Set image patch size in pixels (should be a multiple of 4 for some reason)

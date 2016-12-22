@@ -33,6 +33,7 @@ def estimate_probability_dp_slow(patch_probabilities, foreground_threshold):
 
 
 def shift_zero(x):
+    # add zero in the front, remove element from the back
     return numpy.hstack(([0], x[:-1]))
 
 
@@ -41,7 +42,8 @@ def estimate_probability_dp(patch_probabilities, foreground_threshold):
     n = IMG_PATCH_SIZE * IMG_PATCH_SIZE
     prob = numpy.reshape(patch_probabilities, n)  # make a sequence out of the 2D array
     # dynamic programming:
-    # dp[i][j] = probability that out of the first i pixels (prob[0 : i+1]), j were white
+    # DP[i][j] = probability that out of the first i pixels (prob[0 : i+1]), j were white
+    # now at step i, dp = DP[i]
     dp = numpy.zeros(n+1)
     dp[0] = 1
     for i in range(1,n+1):
@@ -57,5 +59,5 @@ def estimate_probability_dp(patch_probabilities, foreground_threshold):
 if __name__ == '__main__':
     # some simple test
     patch_probabilities = numpy.full((16,16), 0.25)
-    p = estimate_probability(patch_probabilities, 0.25)
+    p = estimate_probability_dp(patch_probabilities, 0.25)
     print(p, numpy.log(p / (1-p)))  # close to 0.5 and to 0.0
