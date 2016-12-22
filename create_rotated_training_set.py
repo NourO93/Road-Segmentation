@@ -15,7 +15,8 @@ import numpy
 import random
 
 
-TRAINING_SET = range(31, 101)  # the first couple of images are left for validation
+TRAINING_SET = range(1, 101)  # the full training set is used
+# TRAINING_SET = range(31, 101)  # the first couple of images are left for validation
 FIRST_NUMBER_TO_WRITE_TO = 101
 PROBABILITY_OF_ROTATING = 0.35
 PADDING_COLOR = 0.0  # 0.0 = black, 0.5 = gray

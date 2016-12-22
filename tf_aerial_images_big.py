@@ -18,14 +18,17 @@ import tensorflow as tf
 
 RESTORE_MODEL = True  # If True, restore existing model instead of training a new one
 DO_PREDICTION_FOR_TESTING_SET = True
-DO_PREDICTION_FOR_VALIDATION_SET = True
+DO_PREDICTION_FOR_VALIDATION_SET = False
 DO_PREDICTION_FOR_TRAINING_SET = False
-VALIDATION_SET = range(1, 31)  # the first couple of images are left for validation
-TRAINING_SET = range(31, 126)  # the first couple of images are left for validation
-TEST_SIZE = 50  # ideally: 50
+VALIDATION_SET = range(1, 1)  # the full training set is used
+TRAINING_SET = range(1, 126)
+# VALIDATION_SET = range(1, 31)  # the first couple of images are left for validation
+# TRAINING_SET = range(31, 126)
+TEST_SIZE = 50
 
 # Set image patch size in pixels (should be a multiple of 4 for some reason)
 IMG_PATCH_SIZE = 48  # ideally, like 48-64
+
 NUM_CHANNELS = 3  # RGB images
 PIXEL_DEPTH = 255
 NUM_LABELS = 2
@@ -36,15 +39,14 @@ REGULARIZER = 5e-4
 RECORDING_STEP = 1000
 SAVING_MODEL_TO_DISK_STEP = 10000
 BATCH_SIZE_FOR_PREDICTION = 32
-PRINT_LINE_EVERY_STEPS = 100
+PRINT_LINE_EVERY_STEPS = 1000
 PADDING_COLOR = 0.0  # 0.0 = black, 0.5 = gray
 SPECIAL_PADDING_COLOR_FOR_GROUNDTRUTH = 0.54  # pixels which have this colour in the groundtruth come from padding during a rotation and should not be used
                                               # warning: if this is set to 0.5 in create_rotated_training_set.py, then it comes up at 0.54 in the image files...
 
 
-tf.app.flags.DEFINE_string('train_dir', 'tmp/mnist',
-                           """Directory where to write event logs """
-                           """and checkpoint.""")
+tf.app.flags.DEFINE_string('train_dir', 'outputs/48, 5e-4, dropout, trained on all training data',
+                           'Directory where to write the checkpoint.')
 FLAGS = tf.app.flags.FLAGS
 
 # paths to stuff

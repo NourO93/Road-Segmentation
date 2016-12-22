@@ -15,6 +15,12 @@ import sys
 from estimate_probability import *
 from ip_optimizer import *
 
+PROCESS_TESTING = True
+PROCESS_VALIDATION = False
+COMPUTE_VALIDATION_SCORE = False
+
+
+
 
 IMG_PATCH_SIZE = 16
 
@@ -161,9 +167,6 @@ def get_chunky_gt():
 
 if __name__ == '__main__':
 
-    PROCESS_TESTING = False
-    PROCESS_VALIDATION = False
-
     if PROCESS_TESTING:
         test_pred_dir = 'predictions_test'
         test_dir = 'test_set_images'
@@ -217,12 +220,13 @@ if __name__ == '__main__':
             overlay = make_img_overlay(img, prd)
             overlay.save(os.path.join(train_pred_dir, 'overlay_' + str(i) + '.png'))
 
-    total_score=0.0
-    for i in range(1, NUM_TRAIN_PREDS + 1):
-        gt='training/groundtruth'+("/chunky_satImage_%.3d" % i)+'.png'
-        pred_nn='predictions_training/bw_prediction_'+str(i)+'.png'
-        sc=mfs_files(pred_nn, gt,foreground_threshold)
-        total_score+=sc
-        print(('Score for Training sample %.3d'%i)+(' %.3f'%sc))
-    print('Average Score %.3f'%(total_score/NUM_TRAIN_PREDS))
+    if COMPUTE_VALIDATION_SCORE:
+        total_score=0.0
+        for i in range(1, NUM_TRAIN_PREDS + 1):
+            gt='training/groundtruth'+("/chunky_satImage_%.3d" % i)+'.png'
+            pred_nn='predictions_training/bw_prediction_'+str(i)+'.png'
+            sc=mfs_files(pred_nn, gt,foreground_threshold)
+            total_score+=sc
+            print(('Score for Training sample %.3d'%i)+(' %.3f'%sc))
+        print('Average Score %.3f'%(total_score/NUM_TRAIN_PREDS))
 
