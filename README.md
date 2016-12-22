@@ -11,20 +11,28 @@ PREREQUISITES:
    We used Gurobi 6.5.2, but the newest version (7.something) should work as well.
 
 
-The steps we used are the following:
+VERY SHORT VERSION:
+- if you want to run prediction to an intermediate stage (this is optional), run:
+    tf_aerial_images_big.py
+- afterwards, run:
+    post_processing.py
+
+
+LONGER VERSION:
+The steps we used were the following:
 
 1. Prepare the input directories (this is already done in the archive whose contents you're reading):
       - training (as in the package we received)
       - test_set_images (here we moved all the .png files to the common directory, instead of one directory per file)
 2. Run create_rotated_training_set.py. This will add several new files to the training directory
-   (they will be random rotations of a random subset of the training files). This is also already done for the archive.
+   (random rotations of a random subset of the training files). This is also already done for the archive.
 3. Now, the options
         RESTORE_MODEL = True
         DO_PREDICTION_FOR_TESTING_SET = True
         DO_PREDICTION_FOR_VALIDATION_SET = False
         DO_PREDICTION_FOR_TRAINING_SET = False
    in tf_aerial_images_big.py control the action:
-      - to train weights of the NN, set RESTORE_MODEL to True, otherwise set it to False
+      - to train weights of the NN, set RESTORE_MODEL to False, otherwise set it to True
       - others are hopefully self-explanatory :) The first 30 images were our validation set,
         but for the submission, we trained the NN on all the images (obtained from also setting
         the validation set to be empty in create_rotated_training_set.py, so that more rotations were also used).
