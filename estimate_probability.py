@@ -9,12 +9,10 @@ ASSUMING THESE ARE INDEPENDENT EVENTS.
 Uses dynamic programming, runs in time O(IMG_PATCH_SIZE ^ 4).
 '''
 
-foreground_threshold = 0.25
-
 def is_integer(x):
     return abs(x-round(x)) < 1e-6
 
-def estimate_probability_slow(patch_probabilities):
+def estimate_probability_dp_slow(patch_probabilities, foreground_threshold):
     IMG_PATCH_SIZE = patch_probabilities.shape[0]
     n = IMG_PATCH_SIZE * IMG_PATCH_SIZE
     prob = numpy.reshape(patch_probabilities, n)  # make a sequence out of the 2D array
@@ -38,7 +36,7 @@ def shift_zero(x):
     return numpy.hstack(([0], x[:-1]))
 
 
-def estimate_probability(patch_probabilities):
+def estimate_probability_dp(patch_probabilities, foreground_threshold):
     IMG_PATCH_SIZE = patch_probabilities.shape[0]
     n = IMG_PATCH_SIZE * IMG_PATCH_SIZE
     prob = numpy.reshape(patch_probabilities, n)  # make a sequence out of the 2D array
@@ -59,5 +57,5 @@ def estimate_probability(patch_probabilities):
 if __name__ == '__main__':
     # some simple test
     patch_probabilities = numpy.full((16,16), 0.25)
-    p = estimate_probability(patch_probabilities)
+    p = estimate_probability(patch_probabilities, 0.25)
     print(p, numpy.log(p / (1-p)))  # close to 0.5 and to 0.0

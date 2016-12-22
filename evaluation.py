@@ -4,7 +4,6 @@ import numpy as np
 def read_image(image_filename):
     img = mpimg.imread(image_filename)
     a=np.asarray(img)
-    (n,m)=a.shape
     return a
     
 def mean_f_score(arr,ground_truth,tresh,patch_size=16):
