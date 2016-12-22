@@ -49,6 +49,7 @@ The steps we used were the following:
    This step generates "heat-maps" - i.e., for every test file e.g. test_3.png,
    it produces a file predictions_test/prediction_3.png of the same size,
    whose value in pixel (i,j) is our predicted likelihood that pixel (i,j) in test_3.png is a road.
+   This is NOT what we eventually submit - it undergoes another processing phase.
 5. Now run post_processing.py to "round" these results.
    Again, the options
        PROCESS_TESTING = True
@@ -58,3 +59,11 @@ The steps we used were the following:
       - files bw_prediction_##.png containing our final prediction (which is just 0/1-valued and constant on 16x16 patches),
       - files overlay_##.png where this is laid over the input,
       - submission.csv.
+
+Some other descriptions of what's in the archive:
+   - the directory `predictions_training` stores the predictions of the 30 first training images, which we used
+     as a validation set. These predictions were made using a model which was trained on the training set
+     with these 30 images removed (this is stored under `48, 5e-4, dropout, trained without validation set`)
+   - the directory `output` stores a few sets of pre-trained NN weights;
+     it also stores, for each weight, a set of predictions (either test or validation set, depending on how these
+     weights were trained).
