@@ -16,7 +16,7 @@ import numpy
 import random
 import tensorflow as tf
 
-RESTORE_MODEL = False  # If True, restore existing model instead of training a new one
+RESTORE_MODEL = True  # If True, restore existing model instead of training a new one
 DO_PREDICTION_FOR_TESTING_SET = True
 DO_PREDICTION_FOR_VALIDATION_SET = True
 DO_PREDICTION_FOR_TRAINING_SET = False
@@ -25,17 +25,18 @@ TRAINING_SET = range(31, 126)  # the first couple of images are left for validat
 TEST_SIZE = 50  # ideally: 50
 
 # Set image patch size in pixels (should be a multiple of 4 for some reason)
-IMG_PATCH_SIZE = 64  # ideally, like 48-64
+IMG_PATCH_SIZE = 48  # ideally, like 48-64
 NUM_CHANNELS = 3  # RGB images
 PIXEL_DEPTH = 255
 NUM_LABELS = 2
 SEED = 464972
 BATCH_SIZE = 32
-NUM_EPOCHS = 0.3  # lots of training
-REGULARIZER = 5e-3
+NUM_EPOCHS = 0.2  # that's lots of training
+REGULARIZER = 5e-4
 RECORDING_STEP = 1000
 SAVING_MODEL_TO_DISK_STEP = 10000
 BATCH_SIZE_FOR_PREDICTION = 32
+PRINT_LINE_EVERY_STEPS = 100
 PADDING_COLOR = 0.0  # 0.0 = black, 0.5 = gray
 SPECIAL_PADDING_COLOR_FOR_GROUNDTRUTH = 0.54  # pixels which have this colour in the groundtruth come from padding during a rotation and should not be used
                                               # warning: if this is set to 0.5 in create_rotated_training_set.py, then it comes up at 0.54 in the image files...
@@ -283,7 +284,7 @@ def main(argv=None):  # pylint: disable=unused-argument
 
 
 
-    # new in our code
+    # this is where we feed in data for prediction
     prediction_data_node = tf.placeholder(
         tf.float32,
         shape=(BATCH_SIZE_FOR_PREDICTION, IMG_PATCH_SIZE, IMG_PATCH_SIZE, NUM_CHANNELS))
@@ -299,7 +300,8 @@ def main(argv=None):  # pylint: disable=unused-argument
                 pairs_JI.append((j,i))
         output_predictions = []  # array of output predictions
         for offset in range(0, len(pairs_JI), BATCH_SIZE_FOR_PREDICTION):
-            print('Beginning offset', offset, 'out of', len(pairs_JI))
+            if offset // PRINT_LINE_EVERY_STEPS > (offset - BATCH_SIZE_FOR_PREDICTION) // PRINT_LINE_EVERY_STEPS:
+                print('Beginning offset', offset, 'out of', len(pairs_JI), '(writing this every', PRINT_LINE_EVERY_STEPS, 'steps)')
             sys.stdout.flush()
             current_pairs_JI = pairs_JI[offset : offset+BATCH_SIZE_FOR_PREDICTION]
 
