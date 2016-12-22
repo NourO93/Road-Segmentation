@@ -15,6 +15,12 @@ import sys
 from estimate_probability import *
 from ip_optimizer import *
 
+PROCESS_TESTING = True
+PROCESS_VALIDATION = False
+
+
+
+
 
 IMG_PATCH_SIZE = 16
 
@@ -160,9 +166,6 @@ def get_chunky_gt():
 
 
 if __name__ == '__main__':
-
-    PROCESS_TESTING = False
-    PROCESS_VALIDATION = False
 
     if PROCESS_TESTING:
         test_pred_dir = 'predictions_test'

@@ -39,7 +39,7 @@ def get_integer_programming_solution(weight, border_penalty):
 
     model = Model("model_name")
     model.setParam("LogToConsole", 0)
-    model.setParam("LogFile", "tmp/gurobi.log")
+    model.setParam("LogFile", "gurobi.log")
     model.setParam("MIPGap", 0.005)  # 0.5% within optimum is enough
     model.setParam("TimeLimit", 20)  # 20 seconds is enough to wait...
 
