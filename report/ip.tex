@@ -1,0 +1,54 @@
+% !TEX root = report.tex
+
+In the previous step, we have obtained, for each pixel $(i,j)$, an estimate $p = p_{ij} \in [0,1]$ of whether this pixel of the (high-resolution) ground truth is white (i.e., a road). We interpret this number as a probability. In this section, we discuss how to convert this to a black or white value for each $16 \times 16$ patch; we call this process \emph{rounding} or \emph{post-processing}. We will treat each patch separately and focus on a single patch.
+
+\subsection{The simple algorithm}
+
+A simple method is just to choose a threshold $t$ (typically $t = 0.25$ since this is how the ground truth is generated)\footnote{In our code, $t$ is called \textit{foreground_threshold}.} and, for each patch, take the mean of the estimated values $m = \frac{\sum p_{ij}}{16 \cdot 16}$. Then, output white iff $m > t$. The parameter $t$ can be optimized to get good validation scores.
+
+% A downside to this approach is that, intuitively, we are discarding the structure given by the patch by just taking its mean. 
+
+\subsection{Integer Programming}
+
+We opt for a more involved approach. First, we estimate the likelihood $\ell \in [0,1]$ of the patch. We would like to take those patches with $\ell > 0.5$. Intuitively, we want it to satisfy that if all pixels have $p \approx 0.25$, then $\ell \approx 0.5$ (since this is the point at which we are not sure whether to take the patch). The same should hold if we have a $0.25$ fraction of pixels with $p = 1$ and the rest have $p = 0$.
+
+One method to get $\ell$ is to compute the mean $m$ and then set $\ell(m)$ to be a piecewise linear function with $\ell(0) = 0, \ell(t) = 0.5, \ell(1) = 1$.
+
+Another one is to assume that each pixel is an \emph{independent} $p$-biased coin flip. Then, we can use dynamic programming to compute, for each $k \in \{0, ... 16 \cdot 16\}$ the exact probability that $k$ pixels are white. We take the probability that the number of white pixels is above the threshold.\footnote{See the code in \texttt{estimate_probability.py} for details, including the recurrence relation for the dynamic programming.}
+
+In practice, we choose the first method because of its simplicity and speed.\footnote{Unfortunately, in Python, this dynamic programming uses about 2-3 seconds per image (even if implemented using NumPy), which makes it difficult to try many hyperparameters.}
+
+Now that we have the likelihood $\ell_v$ for each patch $v$, we develop our Integer Programming approach. Assume that patches are independent. That is, the likelihood of a set of patches is the product of the likelihoods of picking each patch in the set (as well as not picking each patch not in the set). We would like to pick the maximum-likelihood set of patches.
+
+\newcommand{\argmax}{\mathrm{argmax}}
+Let $V$ be the set of patches indexed by $v$; thus we want:
+\begin{align*}
+\argmax_{X \subseteq V} \ell(X) &= \argmax_{X \subseteq V} \prod_{v \in X} \ell_v \prod_{v \in V \setminus X} (1 - \ell_v)
+\end{align*}
+taking logarithms:
+% TODO: please fix this, I dont have time...
+\begin{align*}
+\argmax_{X \subseteq V} \log \ell(X) &= \argmax_{X \subseteq V} \sum_{v \in X} \log \ell_v + \sum_{v \in V \setminus X} \log (1 - \ell_v) \\
+&= \argmax_{X \subseteq V} \sum_{v \in V} \log (1 - \ell_v) + \sum_{v \in X} \log (\ell / (1 - \ell_v)) \\
+&= \argmax_{X \subseteq V} \sum_{v \in X} \log (\ell_v / (1 - \ell_v)) \\
+&= \argmax_{X \subseteq V} \log (\ell_v / (1 - \ell_v)) x_v
+\end{align*}
+where $x_v \in \{0,1\}$ denotes whether we choose $v$ or not. Unsurprisingly, this is maximized by taking $x_e = 1$ iff $\log(\ell_v / (1 - \ell_v)) > 0$, which is equivalent to $\ell_v > 0.5$.
+
+However, the fun is only starting: now we can add extra constraints or modify the objective function of this Integer Programming formulation.
+
+For one, we notice that the white region in the ground truth is always connected (at least if we add the border of the image). Indeed, we would like to get rid of disconnected small white segments in our answers, as they are usually wrong.
+
+Second, we want our output to look ``smooth'', without jagged edges (since the ground truth looks like this). We quantify this as follows: we put a penalty on each pair of neighbouring cells which have different colours, thus seeking to minimize the length of the border. Namely, we define a variable $z_{ab} = |x_a - x_b|$ for each two neighbouring cells $a$ and $b$, and add $- \alpha \sum_{ab} z_{ab}$ to the objective function, where $\alpha > 0$ is a parameter to be chosen.\footnote{Called \texttt{border_penalty} in the code.}
+
+For the connectivity, we define a graph: the vertices are the cells, adjacent ones have edges between them, and we add a root vertex which is connected to the border cells. In this graph, we require that there should exist a flow from the root to the set of vertices $v$ with $x_v = 1$, which sinks flow into each such vertex. The flow may only be positive between cells with $x_v = 1$. This can be accomplished by adding linearly many variables and constraints to the program, and enforces that there is no component of white cells disconnected from the root.\footnote{A brief argument for this is as follows: if there was, then the flow must reach these vertices in order to have negative flow conservation, but this is impossible because there is no way to reach this component from the root.}
+
+We can solve this integer program using the Gurobi optimizer.\footnote{It seems to be of just the right size to be feasible, because it is solved in (usually) a few seconds.} This leaves us with optimizing two hyperparameters, which are $t$ and $\alpha$. The best score we are able to get using this method is $0.798$ using the local validation set and $0.917$ on the public Kaggle scoreboard, using a setting of $t = 0.28$ and $\alpha = 0.28$. While this is not a large improvement over the simple method, where we score $0.797$ locally and $0.915$ on Kaggle using $t = 0.28$, we think that this method is interesting and has the potential to yield higher scores if pushed further (perhaps by optimizing hyperparameters when using the dynamic programming method of obtaining the likelihoods $\ell$). A similar method was also used by \cite{??,??} for delineation of curvilinear structures in images (including road networks).
+% TODO: please cite:
+% https://infoscience.epfl.ch/record/186163
+% https://infoscience.epfl.ch/record/201670?ln=en
+\footnote{These papers are however somewhat hindered by the size of their Integer Programming formulations, which is quadratic; on the other hand, we managed to obtain a linear-sized formulation, which makes it possible to solve the $38 \times 38$ grid instance in seconds.}
+
+
+
+
