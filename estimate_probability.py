@@ -12,6 +12,19 @@ Uses dynamic programming, runs in time O(IMG_PATCH_SIZE ^ 4).
 def is_integer(x):
     return abs(x-round(x)) < 1e-6
 
+
+def piecewise_linear_approx(x, threshold):
+    # piecewise linear function: from (0,0) to (threshold,0.5) and then to (1,1)
+    if x < threshold:
+        return x / threshold * 0.5
+    else:
+        return (x - threshold) / (1 - threshold) * 0.5 + 0.5
+
+
+def estimate_probability_easy(patch_probabilities, foreground_threshold):
+    return piecewise_linear_approx(numpy.mean(patch_probabilities), foreground_threshold)
+
+
 def estimate_probability_dp_slow(patch_probabilities, foreground_threshold):
     IMG_PATCH_SIZE = patch_probabilities.shape[0]
     n = IMG_PATCH_SIZE * IMG_PATCH_SIZE

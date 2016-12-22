@@ -22,10 +22,17 @@ COMPUTE_VALIDATION_SCORE = False
 
 
 
+
 IMG_PATCH_SIZE = 16
 
-foreground_threshold = 0.25 # percentage of pixels > 1 required to assign a foreground label to a patch
+foreground_threshold = 0.28 # percentage of pixels > 1 required to assign a foreground label to a patch
 gt_threshold = 0.25 # how to round the ground truth
+
+USE_ADVANCED_METHOD = True
+# (hyper)parameters for greyscale_to_pred_advanced
+USE_DP = False
+border_penalty = 0.28
+
 
 # assign a label to a patch
 def patch_to_label(patch):
@@ -75,14 +82,6 @@ def fill_holes(im):
     return 1 - ndi.binary_fill_holes(1 - im, structure=np.ones((3,3))).astype(int)
 
 
-def piecewise_linear_approx(x, threshold):
-    # piecewise linear function: from (0,0) to (threshold,0.5) and then to (1,1)
-    if x < threshold:
-        return x / threshold * 0.5
-    else:
-        return (x - threshold) / (1 - threshold) * 0.5 + 0.5
-
-
 def greyscale_to_pred_advanced(im, w, h, threshold, hole_filling):
     print('Complicated rounding of the fractional per-pixel prediction to the final prediction...')
 
@@ -92,7 +91,6 @@ def greyscale_to_pred_advanced(im, w, h, threshold, hole_filling):
     assert (len(im.shape) < 3)
 
     # for each patch compute its likelihood (number in [0,1])
-    USE_DP = True
     if USE_DP:
          print('Running DP...')
     else:
@@ -104,7 +102,7 @@ def greyscale_to_pred_advanced(im, w, h, threshold, hole_filling):
             if USE_DP:
                 prob_estimate[j//w, i//h] = estimate_probability_dp(im_patch, threshold)
             else:
-                prob_estimate[j//w, i//h] = piecewise_linear_approx(np.mean(im_patch), threshold)
+                prob_estimate[j//w, i//h] = estimate_probability_easy(im_patch, threshold)
             prob_estimate[j//w,i//h] = max(min(prob_estimate[j//w,i//h], 1 - 1e-9), 1e-9)  # thresholding to avoid explosion
 
     # get the log-transform (number in (-inf,inf))
@@ -112,11 +110,9 @@ def greyscale_to_pred_advanced(im, w, h, threshold, hole_filling):
 
     # another parameter: give incentive (positive or negative) to take white blocks
     # (can set negative if it seems we're taking too many blocks)
-    incentive = -6.0
-    weights += incentive
+    # weights += incentive
 
     # invoke our IP model
-    border_penalty = 8.0
     print('Running Gurobi...')
     chosen_patches = get_integer_programming_solution(weights, border_penalty)
 
@@ -153,7 +149,10 @@ def greyscale_to_pred_simple(im, w, h, threshold, hole_filling):
 
 
 def greyscale_to_pred(im, w, h, threshold, hole_filling):
-    return greyscale_to_pred_advanced(im, w, h, threshold, hole_filling)
+    if USE_ADVANCED_METHOD:
+        return greyscale_to_pred_advanced(im, w, h, threshold, hole_filling)
+    else:
+        return greyscale_to_pred_simple(im, w, h, threshold, hole_filling)
 
 
 def get_chunky_gt():    
